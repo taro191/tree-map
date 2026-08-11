@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.4</title>
+<title>ระบบแผนที่ต้นไม้ v1.5</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -137,6 +137,10 @@
 
   .empty-hint{font-size:12.5px;color:var(--muted);text-align:center;padding:24px 10px;line-height:1.6;}
 
+  .plot-photo-section{margin:0 0 14px;}
+  .plot-photo-preview{width:100%;max-height:220px;object-fit:cover;border-radius:10px;display:block;background:var(--tag);}
+  .plot-photo-placeholder{background:var(--tag);border-radius:10px;padding:20px 10px;text-align:center;font-size:12.5px;color:var(--muted);}
+
   /* Map */
   .tree-pin{
     background:var(--bark);color:white;border-radius:50% 50% 50% 0;
@@ -227,14 +231,14 @@
   </div>
 
   <div id="topbar">
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.4</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.5</span></h1>
     <button id="menu-btn">☰</button>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.4</span></p>
+      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.5</span></p>
     </div>
     <div class="tabs">
       <button class="tab-btn active" data-tab="plots">แปลงที่ดิน</button>
@@ -257,6 +261,26 @@
           <div class="field">
             <label>เบอร์ติดต่อ (ถ้ามี)</label>
             <input id="in-owner-contact" placeholder="08x-xxx-xxxx">
+          </div>
+          <div class="field">
+            <label>ประเภท/เลขที่เอกสารสิทธิ์ (ถ้ามี)</label>
+            <input id="in-plot-doc" placeholder="เช่น สปก 4-01ข">
+          </div>
+          <div class="field">
+            <label>เนื้อที่</label>
+            <div style="display:flex;gap:8px;">
+              <input id="in-plot-rai" type="number" min="0" placeholder="ไร่" style="width:auto;flex:1;">
+              <input id="in-plot-ngan" type="number" min="0" max="3" placeholder="งาน" style="width:auto;flex:1;">
+              <input id="in-plot-wa" type="number" min="0" placeholder="ตร.วา" style="width:auto;flex:1;">
+            </div>
+          </div>
+          <div class="field">
+            <label>ที่ตั้งแปลง</label>
+            <input id="in-plot-district" placeholder="อำเภอ" style="margin-bottom:8px;">
+            <div style="display:flex;gap:8px;">
+              <input id="in-plot-province" placeholder="จังหวัด" style="width:auto;flex:1;">
+              <input id="in-plot-postcode" placeholder="รหัสไปรษณีย์" style="width:auto;flex:1;max-width:130px;">
+            </div>
           </div>
           <div class="field">
             <label>สีประจำแปลง</label>
@@ -488,6 +512,33 @@ function distMeters(a,b){
   return 2*R*Math.asin(Math.sqrt(s));
 }
 
+function utmLetterDesignator(lat){
+  const letters = 'CDEFGHJKLMNPQRSTUVWXX';
+  if(lat < -80 || lat > 84) return 'Z';
+  return letters[Math.floor((lat+80)/8)];
+}
+
+function latLonToUTM(lat, lon){
+  const a = 6378137.0, eccSq = 0.00669438, k0 = 0.9996;
+  const toRad = d => d*Math.PI/180;
+  const zoneNumber = Math.floor((lon + 180)/6) + 1;
+  const lonOrigin = (zoneNumber - 1)*6 - 180 + 3;
+  const eccPrimeSq = eccSq/(1-eccSq);
+  const latRad = toRad(lat), lonRad = toRad(lon), lonOriginRad = toRad(lonOrigin);
+  const N = a/Math.sqrt(1-eccSq*Math.sin(latRad)**2);
+  const T = Math.tan(latRad)**2;
+  const C = eccPrimeSq*Math.cos(latRad)**2;
+  const A = Math.cos(latRad)*(lonRad-lonOriginRad);
+  const M = a*((1 - eccSq/4 - 3*eccSq**2/64 - 5*eccSq**3/256)*latRad
+    - (3*eccSq/8 + 3*eccSq**2/32 + 45*eccSq**3/1024)*Math.sin(2*latRad)
+    + (15*eccSq**2/256 + 45*eccSq**3/1024)*Math.sin(4*latRad)
+    - (35*eccSq**3/3072)*Math.sin(6*latRad));
+  let easting = k0*N*(A + (1-T+C)*A**3/6 + (5-18*T+T**2+72*C-58*eccPrimeSq)*A**5/120) + 500000.0;
+  let northing = k0*(M + N*Math.tan(latRad)*(A**2/2 + (5-T+9*C+4*C**2)*A**4/24 + (61-58*T+T**2+600*C-330*eccPrimeSq)*A**6/720));
+  if(lat < 0) northing += 10000000.0;
+  return {zone: zoneNumber, letter: utmLetterDesignator(lat), easting, northing};
+}
+
 function startWalkTracking(){
   if(!navigator.geolocation){ alert('เบราว์เซอร์นี้ไม่รองรับ GPS'); walking=false; return; }
   lastWalkPoint = null;
@@ -642,8 +693,20 @@ function renderTreeTab(){
     return;
   }
 
+  const areaLine = areaText(plot);
+  const addrLine = addressText(plot);
   let html = `
-    <div class="active-plot-banner">แปลงที่เลือก: <b>${escapeHtml(plot.name)}</b> · เจ้าของ: ${escapeHtml(plot.ownerName||'-')}</div>
+    <div class="active-plot-banner">
+      แปลงที่เลือก: <b>${escapeHtml(plot.name)}</b> · เจ้าของ: ${escapeHtml(plot.ownerName||'-')}
+      ${plot.docTitle ? `<br>เอกสารสิทธิ์: ${escapeHtml(plot.docTitle)}` : ''}
+      ${areaLine ? `<br>เนื้อที่: ${escapeHtml(areaLine)}` : ''}
+      ${addrLine ? `<br>ที่ตั้ง: ${escapeHtml(addrLine)}` : ''}
+    </div>
+    <div class="plot-photo-section">
+      ${plot.photo ? `<img class="plot-photo-preview" src="${plot.photo}">` : `<div class="plot-photo-placeholder">ยังไม่มีรูปแปลง</div>`}
+      <input type="file" accept="image/*" capture="environment" id="in-plot-camera" style="display:none;">
+      <button class="btn secondary small" id="btn-take-plot-photo" style="width:100%;margin-top:8px;">${plot.photo ? '📷 ถ่ายรูปใหม่ (แทนที่รูปเดิม)' : '📷 ถ่ายรูปแปลง'}</button>
+    </div>
     <div class="mode-toggle">
       <span>โหมดเพิ่มต้นไม้ (คลิกบนแผนที่)</span>
       <div class="switch ${addMode?'on':''}" id="mode-switch"><div class="knob"></div></div>
@@ -675,6 +738,12 @@ function renderTreeTab(){
     renderTreeTab();
   };
   document.getElementById('btn-gps-tree').onclick = ()=> placeTreeAtGPS();
+  document.getElementById('btn-take-plot-photo').onclick = ()=> document.getElementById('in-plot-camera').click();
+  document.getElementById('in-plot-camera').onchange = (e)=>{
+    const file = e.target.files[0];
+    e.target.value = '';
+    if(file) capturePlotPhoto(file);
+  };
   el.querySelectorAll('[data-deltree]').forEach(btn=>{
     btn.onclick = async ()=>{
       const id = btn.dataset.deltree;
@@ -747,6 +816,129 @@ function escapeHtml(s){
 }
 function escapeAttr(s){ return escapeHtml(s); }
 
+function areaText(plot){
+  const parts = [];
+  if(plot.areaRai) parts.push(plot.areaRai+' ไร่');
+  if(plot.areaNgan) parts.push(plot.areaNgan+' งาน');
+  if(plot.areaWa) parts.push(plot.areaWa+' ตร.วา');
+  return parts.join(' ');
+}
+function addressText(plot){
+  const parts = [];
+  if(plot.district) parts.push('อำเภอ'+plot.district);
+  if(plot.province) parts.push('จังหวัด'+plot.province);
+  if(plot.postcode) parts.push(plot.postcode);
+  return parts.join(' ');
+}
+
+function loadImageFile(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onload = ()=>resolve(img);
+      img.onerror = ()=>reject(new Error('ไม่สามารถอ่านไฟล์รูปภาพได้'));
+      img.src = reader.result;
+    };
+    reader.onerror = ()=>reject(new Error('อ่านไฟล์ไม่สำเร็จ'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function getCurrentPositionAsync(){
+  return new Promise((resolve, reject)=>{
+    if(!navigator.geolocation){ reject(new Error('เบราว์เซอร์นี้ไม่รองรับ GPS')); return; }
+    navigator.geolocation.getCurrentPosition(resolve, reject, {enableHighAccuracy:true, timeout:12000, maximumAge:0});
+  });
+}
+
+function stampPlotPhoto(img, plot, pos){
+  const maxDim = 1400;
+  let w = img.naturalWidth, h = img.naturalHeight;
+  const scale = Math.min(1, maxDim / Math.max(w,h));
+  w = Math.round(w*scale); h = Math.round(h*scale);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, w, h);
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('th-TH', {day:'2-digit', month:'short', year:'2-digit'});
+  const timeStr = now.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit', hour12:false});
+
+  const pad = Math.round(w*0.035);
+  const topH = Math.round(h*0.16);
+  const botH = Math.round(h*0.20);
+
+  let g = ctx.createLinearGradient(0,0,0,topH);
+  g.addColorStop(0,'rgba(0,0,0,0.55)'); g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(0,0,w,topH);
+  g = ctx.createLinearGradient(0,h-botH,0,h);
+  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,0.6)');
+  ctx.fillStyle = g; ctx.fillRect(0,h-botH,w,botH);
+
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = '#fff';
+  const titleSize = Math.max(14, Math.round(w*0.045));
+  const subSize = Math.max(11, Math.round(w*0.028));
+  const lineH = subSize + 8;
+
+  ctx.font = `bold ${titleSize}px sans-serif`;
+  ctx.fillText(plot.ownerName || plot.name || '-', pad, pad*0.6);
+
+  const subParts = [];
+  if(plot.docTitle) subParts.push(plot.docTitle);
+  const area = areaText(plot);
+  if(area) subParts.push(area);
+  if(subParts.length){
+    ctx.font = `${subSize}px sans-serif`;
+    ctx.fillText(subParts.join('  '), pad, pad*0.6 + titleSize + 6);
+  }
+
+  ctx.font = `${subSize}px sans-serif`;
+  let ly = h - botH + pad*0.5;
+  const addr = addressText(plot);
+  if(addr){ ctx.fillText(addr, pad, ly); ly += lineH; }
+  ctx.fillText(`${dateStr} ${timeStr}`, pad, ly);
+
+  if(pos){
+    const utm = latLonToUTM(pos.coords.latitude, pos.coords.longitude);
+    const lines = [
+      `zone ${utm.zone} ${utm.letter}`,
+      `x = ${Math.round(utm.easting)}`,
+      `y = ${Math.round(utm.northing)}`,
+      `acc. ${pos.coords.accuracy ? pos.coords.accuracy.toFixed(1) : '-'}m.`
+    ];
+    ctx.font = `bold ${subSize}px sans-serif`;
+    ctx.textAlign = 'right';
+    let ry = h - botH + pad*0.5;
+    lines.forEach(line=>{ ctx.fillText(line, w-pad, ry); ry += lineH; });
+    ctx.textAlign = 'left';
+  }
+
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+async function capturePlotPhoto(file){
+  const plot = plots.find(p=>p.id===selectedPlotId);
+  if(!plot) return;
+  const btn = document.getElementById('btn-take-plot-photo');
+  if(btn){ btn.disabled = true; btn.textContent = 'กำลังประมวลผล...'; }
+  try{
+    const img = await loadImageFile(file);
+    let pos = null;
+    try{ pos = await getCurrentPositionAsync(); }
+    catch(e){ /* ไม่มีพิกัด GPS ก็ยังประทับข้อมูลอื่นได้ */ }
+    plot.photo = stampPlotPhoto(img, plot, pos);
+    await savePlots();
+    renderTreeTab();
+  }catch(err){
+    alert('ถ่ายรูปไม่สำเร็จ: ' + err.message);
+    if(btn){ btn.disabled = false; btn.textContent = plot.photo ? '📷 ถ่ายรูปใหม่ (แทนที่รูปเดิม)' : '📷 ถ่ายรูปแปลง'; }
+  }
+}
+
 // Events
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.onclick = ()=> switchTab(btn.dataset.tab);
@@ -756,8 +948,18 @@ document.getElementById('btn-add-plot').onclick = ()=>{
   const name = document.getElementById('in-plot-name').value.trim();
   const ownerName = document.getElementById('in-owner-name').value.trim();
   const ownerContact = document.getElementById('in-owner-contact').value.trim();
+  const docTitle = document.getElementById('in-plot-doc').value.trim();
+  const areaRai = document.getElementById('in-plot-rai').value.trim();
+  const areaNgan = document.getElementById('in-plot-ngan').value.trim();
+  const areaWa = document.getElementById('in-plot-wa').value.trim();
+  const district = document.getElementById('in-plot-district').value.trim();
+  const province = document.getElementById('in-plot-province').value.trim();
+  const postcode = document.getElementById('in-plot-postcode').value.trim();
   if(!name){ alert('กรุณากรอกชื่อแปลง'); return; }
-  creatingPlot = {name, ownerName, ownerContact, color: editingColor, points: []};
+  creatingPlot = {
+    name, ownerName, ownerContact, docTitle, areaRai, areaNgan, areaWa,
+    district, province, postcode, color: editingColor, points: []
+  };
   boundaryMode = true;
   document.getElementById('plot-step-info').style.display = 'none';
   document.getElementById('plot-step-boundary').style.display = 'block';
@@ -803,7 +1005,10 @@ document.getElementById('btn-save-boundary').onclick = async ()=>{
   if(!creatingPlot || creatingPlot.points.length<3) return;
   const plot = {
     id: uid(), name: creatingPlot.name, ownerName: creatingPlot.ownerName,
-    ownerContact: creatingPlot.ownerContact, color: creatingPlot.color,
+    ownerContact: creatingPlot.ownerContact, docTitle: creatingPlot.docTitle,
+    areaRai: creatingPlot.areaRai, areaNgan: creatingPlot.areaNgan, areaWa: creatingPlot.areaWa,
+    district: creatingPlot.district, province: creatingPlot.province, postcode: creatingPlot.postcode,
+    photo: null, color: creatingPlot.color,
     boundary: creatingPlot.points.slice()
   };
   plots.push(plot);
@@ -812,6 +1017,13 @@ document.getElementById('btn-save-boundary').onclick = async ()=>{
   document.getElementById('in-plot-name').value='';
   document.getElementById('in-owner-name').value='';
   document.getElementById('in-owner-contact').value='';
+  document.getElementById('in-plot-doc').value='';
+  document.getElementById('in-plot-rai').value='';
+  document.getElementById('in-plot-ngan').value='';
+  document.getElementById('in-plot-wa').value='';
+  document.getElementById('in-plot-district').value='';
+  document.getElementById('in-plot-province').value='';
+  document.getElementById('in-plot-postcode').value='';
   editingColor = COLORS[plots.length % COLORS.length];
   renderColorRow();
   endBoundaryCreation();
