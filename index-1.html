@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบแผนที่ต้นไม้</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<style>
+  :root{
+    --bg:#F7F5EF;
+    --panel:#FFFFFF;
+    --ink:#1F2B22;
+    --primary:#3D6B4A;
+    --primary-dark:#2A4C33;
+    --bark:#A6612E;
+    --line:#DCD6C7;
+    --muted:#6B7768;
+    --tag:#F1ECDD;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif;color:var(--ink);background:var(--bg);overscroll-behavior:none;}
+  h1,h2,h3{font-family:Georgia,'Sarabun',serif;margin:0;}
+  #app{position:relative;height:100vh;height:calc(var(--vh,1vh)*100);width:100vw;overflow:hidden;}
+
+  /* Full-screen map, sheet floats on top */
+  #map-wrap{position:absolute;top:0;right:0;bottom:0;left:0;}
+  #map{height:100%;width:100%;}
+
+  #topbar{
+    position:absolute;top:0;left:0;right:0;z-index:900;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:calc(env(safe-area-inset-top,0px) + 12px) 14px 30px;
+    background:linear-gradient(rgba(20,28,22,.45), transparent);
+    pointer-events:none;
+  }
+  #topbar h1{font-size:16.5px;font-weight:700;color:white;text-shadow:0 1px 4px rgba(0,0,0,.45);pointer-events:none;}
+  #menu-btn{
+    pointer-events:auto;width:42px;height:42px;border-radius:50%;background:white;
+    box-shadow:0 2px 10px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;
+    font-size:18px;border:none;cursor:pointer;flex-shrink:0;
+  }
+
+  /* Bottom sheet */
+  #sidebar{
+    position:absolute;left:0;right:0;bottom:0;z-index:950;
+    width:100%;background:var(--panel);
+    border-radius:18px 18px 0 0;box-shadow:0 -6px 28px rgba(31,43,34,0.18);
+    display:flex;flex-direction:column;
+    height:78vh;height:calc(var(--vh,1vh)*78);
+    transform:translateY(calc(100% - 96px));
+    transition:transform .28s cubic-bezier(.32,.72,0,1);
+    touch-action:pan-y;
+  }
+  #sidebar.expanded{transform:translateY(0);}
+
+  #sheet-handle-wrap{padding:10px 0 4px;display:flex;justify-content:center;cursor:pointer;flex-shrink:0;}
+  #sheet-handle{width:38px;height:5px;border-radius:3px;background:var(--line);}
+  #sidebar-header{
+    padding:0 20px 14px;border-bottom:1px solid var(--line);flex-shrink:0;
+  }
+  #sidebar-header h1{font-size:18px;font-weight:700;color:var(--primary-dark);letter-spacing:-0.01em;}
+  #sidebar-header p{margin:4px 0 0;font-size:12.5px;color:var(--muted);}
+
+  .tabs{display:flex;border-bottom:1px solid var(--line);flex-shrink:0;}
+  .tab-btn{flex:1;padding:13px 0;background:none;border:none;font-family:inherit;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;}
+  .tab-btn.active{color:var(--primary-dark);border-bottom-color:var(--primary);}
+
+  .panel{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 20px calc(env(safe-area-inset-bottom,0px) + 24px);display:none;}
+  .panel.active{display:block;}
+
+  .plot-card{
+    border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;
+    cursor:pointer;position:relative;transition:border-color .15s, background .15s;
+  }
+  .plot-card:hover{border-color:var(--primary);}
+  .plot-card.selected{border-color:var(--primary);background:#F2F7F1;}
+  .plot-card .swatch{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px;}
+  .plot-card .plot-name{font-weight:600;font-size:14.5px;}
+  .plot-card .plot-owner{font-size:12.5px;color:var(--muted);margin-top:3px;}
+  .plot-card .plot-count{font-size:11.5px;color:var(--bark);margin-top:5px;font-weight:600;}
+  .plot-card .del-btn{position:absolute;top:10px;right:10px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;opacity:.5;}
+  .plot-card .del-btn:hover{opacity:1;color:#b33;}
+
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;}
+  .field input, .field select, .field textarea{
+    width:100%;padding:12px 12px;border:1px solid var(--line);border-radius:9px;
+    font-family:inherit;font-size:16px;background:#FCFBF8;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{outline:none;border-color:var(--primary);}
+  .field textarea{resize:vertical;min-height:56px;}
+
+  .btn{
+    width:100%;padding:13px;border:none;border-radius:9px;background:var(--primary);
+    color:white;font-family:inherit;font-weight:600;font-size:14.5px;cursor:pointer;
+    transition:background .15s;min-height:46px;
+  }
+  .btn:hover{background:var(--primary-dark);}
+  .btn.secondary{background:transparent;border:1px solid var(--line);color:var(--ink);}
+  .btn.secondary:hover{border-color:var(--primary);}
+  .btn.small{width:auto;padding:9px 12px;font-size:13px;}
+
+  #new-plot-form{border-top:1px dashed var(--line);margin-top:14px;padding-top:14px;}
+
+  .color-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+  .color-dot{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;}
+  .color-dot.selected{border-color:var(--ink);}
+
+  /* Tree tab */
+  .active-plot-banner{
+    background:var(--tag);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:13px;
+  }
+  .active-plot-banner b{color:var(--primary-dark);}
+  .mode-toggle{
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--tag);border-radius:10px;padding:10px 12px;margin-bottom:14px;
+  }
+  .mode-toggle span{font-size:13px;font-weight:600;}
+  .switch{position:relative;width:46px;height:26px;background:var(--line);border-radius:13px;cursor:pointer;transition:background .15s;flex-shrink:0;}
+  .switch.on{background:var(--primary);}
+  .switch .knob{position:absolute;top:3px;left:3px;width:20px;height:20px;background:white;border-radius:50%;transition:left .15s;}
+  .switch.on .knob{left:23px;}
+
+  .tree-item{
+    display:flex;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;
+  }
+  .tree-num{
+    min-width:28px;height:28px;border-radius:50%;background:var(--bark);color:white;
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;
+  }
+  .tree-photo{width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--tag);flex-shrink:0;}
+  .tree-info{flex:1;min-width:0;}
+  .tree-info .tname{font-weight:600;font-size:13.5px;}
+  .tree-info .tspecies{font-size:12px;color:var(--muted);}
+  .tree-item .del-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;opacity:.5;align-self:flex-start;}
+  .tree-item .del-btn:hover{opacity:1;color:#b33;}
+
+  .empty-hint{font-size:12.5px;color:var(--muted);text-align:center;padding:24px 10px;line-height:1.6;}
+
+  /* Map */
+  #map-wrap{flex:1;position:relative;}
+  #map{height:100%;width:100%;}
+  .tree-pin{
+    background:var(--bark);color:white;border-radius:50% 50% 50% 0;
+    width:30px;height:30px;transform:rotate(-45deg);
+    display:flex;align-items:center;justify-content:center;
+    border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3);
+  }
+  .tree-pin span{transform:rotate(45deg);font-weight:700;font-size:12px;}
+
+  #crosshair-banner{
+    position:absolute;top:calc(env(safe-area-inset-top,0px) + 62px);left:50%;transform:translateX(-50%);
+    background:var(--primary-dark);color:white;padding:9px 16px;border-radius:20px;
+    font-size:13px;font-weight:600;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,.2);
+    display:none;max-width:88vw;text-align:center;
+  }
+  #crosshair-banner.show{display:block;}
+
+  #map-fallback-notice{
+    position:absolute;top:0;left:0;right:0;bottom:0;z-index:500;
+    background:var(--bg);display:none;align-items:center;justify-content:center;
+    flex-direction:column;text-align:center;padding:40px 24px;font-size:16px;font-weight:700;
+    color:var(--primary-dark);
+  }
+  #map-fallback-notice span{display:block;margin-top:10px;font-size:13px;font-weight:400;color:var(--muted);line-height:1.6;max-width:320px;}
+  #map-fallback-notice.show{display:flex;}
+
+  #gps-btn{
+    position:absolute;bottom:calc(78vh + 14px);right:14px;z-index:960;
+    width:48px;height:48px;border-radius:50%;background:white;border:1px solid var(--line);
+    box-shadow:0 4px 12px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;
+    cursor:pointer;font-size:21px;transition:bottom .28s cubic-bezier(.32,.72,0,1);
+  }
+  #gps-btn.peek{bottom:110px;}
+  #gps-btn.loading{animation:spin 1s linear infinite;}
+  @keyframes spin{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+
+  .gps-dot{
+    width:16px;height:16px;border-radius:50%;background:#3B82F6;border:3px solid white;
+    box-shadow:0 0 0 4px rgba(59,130,246,0.3);
+  }
+
+  .gps-readout{
+    background:var(--tag);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--muted);
+    margin-bottom:12px;font-family:monospace;
+  }
+
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn:disabled:hover{background:var(--primary);}
+
+  .boundary-vertex{
+    width:11px;height:11px;border-radius:50%;background:white;border:2px solid var(--bark);
+    box-shadow:0 1px 3px rgba(0,0,0,.3);
+  }
+  .walk-dot{
+    width:16px;height:16px;border-radius:50%;background:#3B82F6;border:3px solid white;
+    box-shadow:0 0 0 6px rgba(59,130,246,0.25);
+  }
+
+  .popup-card{font-family:inherit;min-width:160px;}
+  .popup-card .pname{font-family:inherit;font-weight:700;font-size:15px;color:var(--primary-dark);}
+  .popup-card .pseq{font-size:11px;color:var(--bark);font-weight:700;margin-bottom:4px;}
+  .popup-card img{width:100%;border-radius:6px;margin:6px 0;max-height:100px;object-fit:cover;}
+  .popup-card .pnote{font-size:12px;color:var(--muted);}
+
+  /* Add tree modal */
+  .modal-overlay{
+    position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(31,43,34,0.45);z-index:2000;
+    display:none;align-items:center;justify-content:center;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal{background:white;border-radius:16px;padding:22px;width:min(92vw,340px);box-shadow:0 20px 60px rgba(0,0,0,.25);}
+  .modal h3{font-size:17px;margin-bottom:14px;color:var(--primary-dark);}
+
+  ::-webkit-scrollbar{width:6px;}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="map-wrap">
+    <div id="crosshair-banner">คลิกบนแผนที่เพื่อวางตำแหน่งต้นไม้</div>
+    <div id="map-fallback-notice">
+      🗺️ โหลดแผนที่ไม่สำเร็จ<br>
+      <span id="map-fallback-detail">กรุณาเปิดไฟล์นี้ในเบราว์เซอร์ของโทรศัพท์โดยตรง (ไม่ใช่หน้าตัวอย่างในแชท) เพื่อให้โหลดแผนที่ผ่านอินเทอร์เน็ตได้</span>
+    </div>
+    <div id="gps-btn" title="ไปยังตำแหน่ง GPS ของฉัน">📍</div>
+    <div id="map"></div>
+  </div>
+
+  <div id="topbar">
+    <h1>🌳 แผนที่ต้นไม้</h1>
+    <button id="menu-btn">☰</button>
+  </div>
+
+  <div id="sidebar" class="expanded">
+    <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
+    <div id="sidebar-header">
+      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้</p>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="plots">แปลงที่ดิน</button>
+      <button class="tab-btn" data-tab="trees">ต้นไม้</button>
+    </div>
+
+    <div class="panel active" id="panel-plots">
+      <div id="plot-list"></div>
+      <div id="new-plot-form">
+        <div id="plot-step-info">
+          <h3 style="font-size:14px;margin-bottom:10px;">+ เพิ่มแปลงใหม่</h3>
+          <div class="field">
+            <label>ชื่อแปลง</label>
+            <input id="in-plot-name" placeholder="เช่น แปลง A1">
+          </div>
+          <div class="field">
+            <label>ชื่อเจ้าของแปลง</label>
+            <input id="in-owner-name" placeholder="ชื่อ-นามสกุล">
+          </div>
+          <div class="field">
+            <label>เบอร์ติดต่อ (ถ้ามี)</label>
+            <input id="in-owner-contact" placeholder="08x-xxx-xxxx">
+          </div>
+          <div class="field">
+            <label>สีประจำแปลง</label>
+            <div class="color-row" id="color-row"></div>
+          </div>
+          <button class="btn" id="btn-add-plot">ถัดไป: วาดขอบเขตแปลง →</button>
+        </div>
+
+        <div id="plot-step-boundary" style="display:none;">
+          <h3 style="font-size:14px;margin-bottom:8px;">วาดขอบเขตแปลง</h3>
+          <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;line-height:1.5;">
+            แตะบนแผนที่เพื่อวางจุดขอบเขตทีละจุด หรือเปิดโหมดเดินสำรวจแล้วเดินจริงรอบแปลง ระบบจะบันทึกพิกัด GPS ให้อัตโนมัติ
+          </p>
+          <div class="mode-toggle">
+            <span>🚶 โหมดเดินสำรวจด้วย GPS</span>
+            <div class="switch" id="walk-switch"><div class="knob"></div></div>
+          </div>
+          <div class="gps-readout" id="boundary-point-count">จุดที่วางแล้ว: 0 (ต้องมีอย่างน้อย 3 จุด)</div>
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <button class="btn secondary small" id="btn-undo-point" style="flex:1;">↩ ลบจุดล่าสุด</button>
+            <button class="btn secondary small" id="btn-cancel-boundary" style="flex:1;">ยกเลิก</button>
+          </div>
+          <button class="btn" id="btn-save-boundary" disabled>บันทึกแปลง</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-trees">
+      <div id="tree-tab-body"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <h3 id="modal-title">เพิ่มต้นไม้</h3>
+    <div class="gps-readout" id="modal-latlng">lat: -, lng: -</div>
+    <div class="field">
+      <label>ชื่อ/สายพันธุ์ต้นไม้</label>
+      <input id="in-tree-name" placeholder="เช่น มะม่วง, สัก">
+    </div>
+    <div class="field">
+      <label>ลิงก์รูปภาพ (ถ้ามี)</label>
+      <input id="in-tree-photo" placeholder="https://...">
+    </div>
+    <div class="field">
+      <label>หมายเหตุ</label>
+      <textarea id="in-tree-note" placeholder="ขนาด, สภาพ, วันที่ปลูก ฯลฯ"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn secondary" id="btn-cancel-tree">ยกเลิก</button>
+      <button class="btn" id="btn-save-tree">บันทึกต้นไม้</button>
+    </div>
+  </div>
+</div>
+
+<script>window.__leafletFailed = false;</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" onerror="window.__leafletFailed=true;"></script>
+<script>
+const COLORS = ['#3D6B4A','#A6612E','#4A6FA5','#8A4F9E','#B5533C','#5A8A6B','#C08A2E','#3F7C7C'];
+let plots = [];
+let trees = [];
+let selectedPlotId = null;
+let addMode = false;
+let pendingLatLng = null;
+let editingColor = COLORS[0];
+let map, markerLayer, boundaryLayer, boundaryPreviewLayer;
+
+let creatingPlot = null;   // {name, ownerName, ownerContact, color, points:[]}
+let boundaryMode = false;
+let walking = false;
+let walkWatchId = null;
+let lastWalkPoint = null;
+let walkUserMarker = null;
+
+function setSheetExpanded(expanded){
+  document.getElementById('sidebar').classList.toggle('expanded', expanded);
+  document.getElementById('gps-btn').classList.toggle('peek', !expanded);
+}
+function toggleSheet(){
+  setSheetExpanded(!document.getElementById('sidebar').classList.contains('expanded'));
+}
+
+function setVH(){
+  document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
+}
+setVH();
+window.addEventListener('resize', setVH);
+window.addEventListener('orientationchange', setVH);
+
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+function loadScript(src){
+  return new Promise((resolve, reject)=>{
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = ()=>resolve();
+    s.onerror = ()=>reject(new Error('โหลดสคริปต์ไม่สำเร็จ: '+src));
+    document.head.appendChild(s);
+  });
+}
+function loadStylesheet(href){
+  return new Promise((resolve)=>{
+    const l = document.createElement('link');
+    l.rel='stylesheet'; l.href=href;
+    l.onload=()=>resolve(); l.onerror=()=>resolve();
+    document.head.appendChild(l);
+  });
+}
+async function ensureLeaflet(){
+  if(typeof L !== 'undefined') return true;
+  await loadStylesheet('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
+  const altSources = [
+    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+    'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js'
+  ];
+  for(const src of altSources){
+    try{
+      await loadScript(src);
+      if(typeof L !== 'undefined') return true;
+    }catch(e){ /* try next source */ }
+  }
+  return typeof L !== 'undefined';
+}
+
+async function loadData(){
+  try{
+    const p = await window.storage.get('forest-plots');
+    plots = p ? JSON.parse(p.value) : [];
+  }catch(e){ plots = []; }
+  try{
+    const t = await window.storage.get('forest-trees');
+    trees = t ? JSON.parse(t.value) : [];
+  }catch(e){ trees = []; }
+}
+async function savePlots(){
+  try{ await window.storage.set('forest-plots', JSON.stringify(plots)); }catch(e){ console.error('save plots failed', e); }
+}
+async function saveTrees(){
+  try{ await window.storage.set('forest-trees', JSON.stringify(trees)); }catch(e){ console.error('save trees failed', e); }
+}
+
+function initMap(){
+  map = L.map('map', {zoomControl:true}).setView([13.7563, 100.5018], 6);
+  const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
+  }).addTo(map);
+
+  let tileErrorCount = 0, tileOkCount = 0;
+  tiles.on('tileerror', ()=>{
+    tileErrorCount++;
+    if(tileErrorCount >= 4 && tileOkCount === 0){
+      showMapError('โหลดภาพแผนที่ (map tiles) ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+    }
+  });
+  tiles.on('tileload', ()=>{
+    tileOkCount++;
+    document.getElementById('map-fallback-notice').classList.remove('show');
+  });
+
+  markerLayer = L.layerGroup().addTo(map);
+  boundaryLayer = L.layerGroup().addTo(map);
+  boundaryPreviewLayer = L.layerGroup().addTo(map);
+
+  map.on('click', (e)=>{
+    if(boundaryMode){
+      addBoundaryPoint(e.latlng);
+      return;
+    }
+    if(!addMode) return;
+    if(!selectedPlotId){ alert('กรุณาเลือกแปลงก่อนเพิ่มต้นไม้'); return; }
+    if(!plotHasBoundary(selectedPlotId)){ alert('แปลงนี้ยังไม่มีขอบเขตที่บันทึกไว้'); return; }
+    pendingLatLng = e.latlng;
+    openTreeModal();
+  });
+}
+
+function plotHasBoundary(plotId){
+  const p = plots.find(pl=>pl.id===plotId);
+  return !!(p && p.boundary && p.boundary.length>=3);
+}
+
+function updateBanner(){
+  const b = document.getElementById('crosshair-banner');
+  if(boundaryMode){
+    b.textContent = walking ? '🚶 กำลังบันทึกเส้นทางเดินสำรวจ... เดินรอบแปลง' : 'แตะบนแผนที่เพื่อวางจุดขอบเขตแปลง';
+    b.classList.add('show');
+  } else if(addMode){
+    b.textContent = 'คลิกบนแผนที่เพื่อวางตำแหน่งต้นไม้';
+    b.classList.add('show');
+  } else {
+    b.classList.remove('show');
+  }
+}
+
+function addBoundaryPoint(latlng){
+  if(!creatingPlot) return;
+  creatingPlot.points.push({lat:latlng.lat, lng:latlng.lng});
+  renderBoundaryPreview();
+  updateBoundaryCount();
+}
+
+function renderBoundaryPreview(){
+  boundaryPreviewLayer.clearLayers();
+  if(!creatingPlot || creatingPlot.points.length===0) return;
+  const latlngs = creatingPlot.points.map(p=>[p.lat,p.lng]);
+  if(latlngs.length>=2){
+    L.polyline(latlngs, {color:creatingPlot.color, weight:3, dashArray:'6,6'}).addTo(boundaryPreviewLayer);
+  }
+  if(latlngs.length>=3){
+    L.polyline([latlngs[latlngs.length-1], latlngs[0]], {color:creatingPlot.color, weight:2, dashArray:'3,6', opacity:.6}).addTo(boundaryPreviewLayer);
+  }
+  latlngs.forEach((ll,i)=>{
+    const icon = L.divIcon({className:'', html:'<div class="boundary-vertex"></div>', iconSize:[11,11], iconAnchor:[5,5]});
+    L.marker(ll, {icon}).addTo(boundaryPreviewLayer).bindTooltip(String(i+1), {permanent:false});
+  });
+}
+
+function updateBoundaryCount(){
+  const n = creatingPlot ? creatingPlot.points.length : 0;
+  document.getElementById('boundary-point-count').textContent = `จุดที่วางแล้ว: ${n} (ต้องมีอย่างน้อย 3 จุด)`;
+  document.getElementById('btn-save-boundary').disabled = n < 3;
+}
+
+function distMeters(a,b){
+  const R=6371000, toRad = d=>d*Math.PI/180;
+  const dLat = toRad(b.lat-a.lat), dLng = toRad(b.lng-a.lng);
+  const s = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s));
+}
+
+function startWalkTracking(){
+  if(!navigator.geolocation){ alert('เบราว์เซอร์นี้ไม่รองรับ GPS'); walking=false; return; }
+  lastWalkPoint = null;
+  walkWatchId = navigator.geolocation.watchPosition(
+    (pos)=>{
+      const pt = {lat:pos.coords.latitude, lng:pos.coords.longitude};
+      if(walkUserMarker) map.removeLayer(walkUserMarker);
+      const icon = L.divIcon({className:'', html:'<div class="walk-dot"></div>', iconSize:[16,16], iconAnchor:[8,8]});
+      walkUserMarker = L.marker([pt.lat,pt.lng], {icon}).addTo(map);
+      map.panTo([pt.lat,pt.lng]);
+      if(!lastWalkPoint || distMeters(lastWalkPoint, pt) > 3){
+        lastWalkPoint = pt;
+        addBoundaryPoint(pt);
+      }
+    },
+    (err)=>{
+      alert('อ่านตำแหน่ง GPS ไม่ได้: ' + err.message);
+      walking = false;
+      document.getElementById('walk-switch').classList.remove('on');
+      updateBanner();
+      stopWalkTracking();
+    },
+    {enableHighAccuracy:true, maximumAge:0, timeout:15000}
+  );
+}
+
+function stopWalkTracking(){
+  if(walkWatchId!==null){ navigator.geolocation.clearWatch(walkWatchId); walkWatchId=null; }
+  if(walkUserMarker){ map.removeLayer(walkUserMarker); walkUserMarker=null; }
+  lastWalkPoint = null;
+}
+
+function openTreeModal(){
+  document.getElementById('modal-title').textContent = 'เพิ่มต้นไม้ต้นที่ ' + (nextSeq(selectedPlotId));
+  document.getElementById('in-tree-name').value='';
+  document.getElementById('in-tree-photo').value='';
+  document.getElementById('in-tree-note').value='';
+  document.getElementById('modal-latlng').textContent =
+    `lat: ${pendingLatLng.lat.toFixed(6)}, lng: ${pendingLatLng.lng.toFixed(6)}`;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+let userMarker = null;
+function locateUser(onDone){
+  const btn = document.getElementById('gps-btn');
+  if(!navigator.geolocation){
+    alert('เบราว์เซอร์นี้ไม่รองรับ GPS');
+    return;
+  }
+  btn.classList.add('loading');
+  navigator.geolocation.getCurrentPosition(
+    (pos)=>{
+      btn.classList.remove('loading');
+      const latlng = {lat: pos.coords.latitude, lng: pos.coords.longitude};
+      if(userMarker) map.removeLayer(userMarker);
+      const icon = L.divIcon({className:'', html:'<div class="gps-dot"></div>', iconSize:[16,16], iconAnchor:[8,8]});
+      userMarker = L.marker([latlng.lat, latlng.lng], {icon}).addTo(map);
+      map.flyTo([latlng.lat, latlng.lng], 18);
+      if(onDone) onDone(latlng);
+    },
+    (err)=>{
+      btn.classList.remove('loading');
+      alert('ไม่สามารถอ่านตำแหน่ง GPS ได้: ' + err.message + ' (ต้องอนุญาตการเข้าถึงตำแหน่งและใช้งานผ่าน HTTPS)');
+    },
+    {enableHighAccuracy:true, timeout:12000, maximumAge:0}
+  );
+}
+
+function placeTreeAtGPS(){
+  if(!selectedPlotId){ alert('กรุณาเลือกแปลงก่อน'); return; }
+  if(!plotHasBoundary(selectedPlotId)){ alert('แปลงนี้ยังไม่มีขอบเขตที่บันทึกไว้'); return; }
+  locateUser((latlng)=>{
+    pendingLatLng = L.latLng(latlng.lat, latlng.lng);
+    openTreeModal();
+  });
+}
+
+function nextSeq(plotId){
+  const list = trees.filter(t=>t.plotId===plotId);
+  return list.length ? Math.max(...list.map(t=>t.seq))+1 : 1;
+}
+
+function renderColorRow(){
+  const row = document.getElementById('color-row');
+  row.innerHTML = '';
+  COLORS.forEach(c=>{
+    const d = document.createElement('div');
+    d.className = 'color-dot' + (c===editingColor?' selected':'');
+    d.style.background = c;
+    d.onclick = ()=>{ editingColor = c; renderColorRow(); };
+    row.appendChild(d);
+  });
+}
+
+function renderPlotList(){
+  const el = document.getElementById('plot-list');
+  if(plots.length===0){
+    el.innerHTML = '<div class="empty-hint">ยังไม่มีแปลง<br>เพิ่มแปลงแรกของคุณด้านล่าง</div>';
+    return;
+  }
+  el.innerHTML = '';
+  plots.forEach(p=>{
+    const count = trees.filter(t=>t.plotId===p.id).length;
+    const hasBoundary = p.boundary && p.boundary.length>=3;
+    const card = document.createElement('div');
+    card.className = 'plot-card' + (p.id===selectedPlotId?' selected':'');
+    card.innerHTML = `
+      <button class="del-btn" data-del="${p.id}">✕</button>
+      <div class="plot-name"><span class="swatch" style="background:${p.color}"></span>${escapeHtml(p.name)}</div>
+      <div class="plot-owner">เจ้าของ: ${escapeHtml(p.ownerName||'-')}${p.ownerContact? ' · '+escapeHtml(p.ownerContact):''}</div>
+      <div class="plot-count">🌳 ${count} ต้น${hasBoundary? '' : ' · ⚠️ ไม่มีขอบเขต'}</div>
+    `;
+    card.onclick = (e)=>{
+      if(e.target.dataset.del) return;
+      if(boundaryMode){ alert('กำลังวาดขอบเขตแปลงอยู่ กรุณาบันทึกหรือยกเลิกก่อน'); return; }
+      selectedPlotId = p.id;
+      renderAll();
+      switchTab('trees');
+    };
+    el.appendChild(card);
+  });
+  el.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.onclick = async (e)=>{
+      e.stopPropagation();
+      if(boundaryMode){ alert('กำลังวาดขอบเขตแปลงอยู่ กรุณาบันทึกหรือยกเลิกก่อน'); return; }
+      const id = btn.dataset.del;
+      if(!confirm('ลบแปลงนี้และต้นไม้ทั้งหมดในแปลง?')) return;
+      plots = plots.filter(p=>p.id!==id);
+      trees = trees.filter(t=>t.plotId!==id);
+      if(selectedPlotId===id) selectedPlotId=null;
+      await savePlots(); await saveTrees();
+      renderAll();
+    };
+  });
+}
+
+function renderTreeTab(){
+  const el = document.getElementById('tree-tab-body');
+  if(!selectedPlotId){
+    el.innerHTML = '<div class="empty-hint">เลือกแปลงจากแท็บ "แปลงที่ดิน" ก่อน<br>เพื่อเริ่มเพิ่มตำแหน่งต้นไม้</div>';
+    return;
+  }
+  const plot = plots.find(p=>p.id===selectedPlotId);
+  const hasBoundary = plot.boundary && plot.boundary.length>=3;
+  const list = trees.filter(t=>t.plotId===selectedPlotId).sort((a,b)=>a.seq-b.seq);
+
+  if(!hasBoundary){
+    el.innerHTML = `
+      <div class="active-plot-banner">แปลงที่เลือก: <b>${escapeHtml(plot.name)}</b></div>
+      <div class="empty-hint">แปลงนี้ยังไม่มีขอบเขตที่บันทึกไว้<br>ต้องวาดขอบเขตแปลงให้เสร็จก่อน จึงจะระบุตำแหน่งต้นไม้ได้</div>
+    `;
+    return;
+  }
+
+  let html = `
+    <div class="active-plot-banner">แปลงที่เลือก: <b>${escapeHtml(plot.name)}</b> · เจ้าของ: ${escapeHtml(plot.ownerName||'-')}</div>
+    <div class="mode-toggle">
+      <span>โหมดเพิ่มต้นไม้ (คลิกบนแผนที่)</span>
+      <div class="switch ${addMode?'on':''}" id="mode-switch"><div class="knob"></div></div>
+    </div>
+    <button class="btn secondary small" id="btn-gps-tree" style="width:100%;margin-bottom:14px;">📍 ใช้ตำแหน่ง GPS ปัจจุบันเป็นตำแหน่งต้นไม้</button>
+  `;
+  if(list.length===0){
+    html += '<div class="empty-hint">ยังไม่มีต้นไม้ในแปลงนี้<br>เปิดโหมดเพิ่มต้นไม้แล้วคลิกบนแผนที่</div>';
+  } else {
+    list.forEach(t=>{
+      html += `
+        <div class="tree-item">
+          <div class="tree-num">${t.seq}</div>
+          ${t.photoUrl ? `<img class="tree-photo" src="${escapeAttr(t.photoUrl)}" onerror="this.style.display='none'">` : `<div class="tree-photo"></div>`}
+          <div class="tree-info">
+            <div class="tname">ต้นที่ ${t.seq}${t.name? ' · '+escapeHtml(t.name):''}</div>
+            <div class="tspecies">${escapeHtml(t.note||'')}</div>
+          </div>
+          <button class="del-btn" data-deltree="${t.id}">✕</button>
+        </div>
+      `;
+    });
+  }
+  el.innerHTML = html;
+  document.getElementById('mode-switch').onclick = ()=>{
+    addMode = !addMode;
+    updateBanner();
+    if(addMode) setSheetExpanded(false);
+    renderTreeTab();
+  };
+  document.getElementById('btn-gps-tree').onclick = ()=> placeTreeAtGPS();
+  el.querySelectorAll('[data-deltree]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const id = btn.dataset.deltree;
+      trees = trees.filter(t=>t.id!==id);
+      await saveTrees();
+      renderAll();
+    };
+  });
+}
+
+function renderMarkers(){
+  markerLayer.clearLayers();
+  trees.forEach(t=>{
+    const plot = plots.find(p=>p.id===t.plotId);
+    const color = plot ? plot.color : '#3D6B4A';
+    const icon = L.divIcon({
+      className:'',
+      html:`<div class="tree-pin" style="background:${color}"><span>${t.seq}</span></div>`,
+      iconSize:[30,30], iconAnchor:[15,30]
+    });
+    const marker = L.marker([t.lat,t.lng], {icon}).addTo(markerLayer);
+    const photoHtml = t.photoUrl ? `<img src="${escapeAttr(t.photoUrl)}" onerror="this.style.display='none'">` : '';
+    marker.bindPopup(`
+      <div class="popup-card">
+        <div class="pseq">ต้นที่ ${t.seq} · ${escapeHtml(plot?plot.name:'')}</div>
+        <div class="pname">${escapeHtml(t.name||'ไม่ระบุชื่อ')}</div>
+        ${photoHtml}
+        ${t.note?`<div class="pnote">${escapeHtml(t.note)}</div>`:''}
+      </div>
+    `);
+  });
+}
+
+function renderBoundaries(){
+  boundaryLayer.clearLayers();
+  plots.forEach(p=>{
+    if(!p.boundary || p.boundary.length<3) return;
+    const latlngs = p.boundary.map(pt=>[pt.lat,pt.lng]);
+    L.polygon(latlngs, {
+      color:p.color, weight: p.id===selectedPlotId?3:2,
+      fillColor:p.color, fillOpacity: p.id===selectedPlotId?0.16:0.08,
+      dashArray: p.id===selectedPlotId? null : '5,5'
+    }).addTo(boundaryLayer).bindTooltip(p.name, {sticky:true});
+  });
+}
+
+function fitToPlot(){
+  if(!selectedPlotId) return;
+  const list = trees.filter(t=>t.plotId===selectedPlotId);
+  if(list.length===0) return;
+  const bounds = L.latLngBounds(list.map(t=>[t.lat,t.lng]));
+  map.fitBounds(bounds.pad(0.3));
+}
+
+function switchTab(name){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===name));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id==='panel-'+name));
+  setSheetExpanded(true);
+}
+
+function renderAll(){
+  renderPlotList();
+  renderTreeTab();
+  renderMarkers();
+  renderBoundaries();
+}
+
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function escapeAttr(s){ return escapeHtml(s); }
+
+// Events
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.onclick = ()=> switchTab(btn.dataset.tab);
+});
+
+document.getElementById('btn-add-plot').onclick = ()=>{
+  const name = document.getElementById('in-plot-name').value.trim();
+  const ownerName = document.getElementById('in-owner-name').value.trim();
+  const ownerContact = document.getElementById('in-owner-contact').value.trim();
+  if(!name){ alert('กรุณากรอกชื่อแปลง'); return; }
+  creatingPlot = {name, ownerName, ownerContact, color: editingColor, points: []};
+  boundaryMode = true;
+  document.getElementById('plot-step-info').style.display = 'none';
+  document.getElementById('plot-step-boundary').style.display = 'block';
+  renderBoundaryPreview();
+  updateBoundaryCount();
+  updateBanner();
+  switchTab('plots');
+};
+
+function endBoundaryCreation(){
+  stopWalkTracking();
+  walking = false;
+  boundaryMode = false;
+  creatingPlot = null;
+  boundaryPreviewLayer.clearLayers();
+  document.getElementById('walk-switch').classList.remove('on');
+  document.getElementById('plot-step-boundary').style.display = 'none';
+  document.getElementById('plot-step-info').style.display = 'block';
+  updateBanner();
+}
+
+document.getElementById('walk-switch').onclick = ()=>{
+  walking = !walking;
+  document.getElementById('walk-switch').classList.toggle('on', walking);
+  if(walking){ startWalkTracking(); setSheetExpanded(false); } else { stopWalkTracking(); }
+  updateBanner();
+};
+
+document.getElementById('btn-undo-point').onclick = ()=>{
+  if(creatingPlot && creatingPlot.points.length){
+    creatingPlot.points.pop();
+    renderBoundaryPreview();
+    updateBoundaryCount();
+  }
+};
+
+document.getElementById('btn-cancel-boundary').onclick = ()=>{
+  if(!confirm('ยกเลิกการสร้างแปลงนี้?')) return;
+  endBoundaryCreation();
+};
+
+document.getElementById('btn-save-boundary').onclick = async ()=>{
+  if(!creatingPlot || creatingPlot.points.length<3) return;
+  const plot = {
+    id: uid(), name: creatingPlot.name, ownerName: creatingPlot.ownerName,
+    ownerContact: creatingPlot.ownerContact, color: creatingPlot.color,
+    boundary: creatingPlot.points.slice()
+  };
+  plots.push(plot);
+  selectedPlotId = plot.id;
+  await savePlots();
+  document.getElementById('in-plot-name').value='';
+  document.getElementById('in-owner-name').value='';
+  document.getElementById('in-owner-contact').value='';
+  editingColor = COLORS[plots.length % COLORS.length];
+  renderColorRow();
+  endBoundaryCreation();
+  renderAll();
+  switchTab('trees');
+};
+
+document.getElementById('btn-cancel-tree').onclick = ()=>{
+  document.getElementById('modal-overlay').classList.remove('show');
+  pendingLatLng = null;
+};
+
+document.getElementById('btn-save-tree').onclick = async ()=>{
+  if(!pendingLatLng || !selectedPlotId) return;
+  const name = document.getElementById('in-tree-name').value.trim();
+  const photoUrl = document.getElementById('in-tree-photo').value.trim();
+  const note = document.getElementById('in-tree-note').value.trim();
+  const tree = {
+    id: uid(), plotId: selectedPlotId, seq: nextSeq(selectedPlotId),
+    name, photoUrl, note, lat: pendingLatLng.lat, lng: pendingLatLng.lng
+  };
+  trees.push(tree);
+  await saveTrees();
+  document.getElementById('modal-overlay').classList.remove('show');
+  pendingLatLng = null;
+  renderAll();
+};
+
+document.getElementById('menu-btn').onclick = toggleSheet;
+document.getElementById('sheet-handle-wrap').onclick = toggleSheet;
+
+document.getElementById('gps-btn').onclick = ()=> locateUser();
+
+function showMapError(msg){
+  const notice = document.getElementById('map-fallback-notice');
+  const detail = document.getElementById('map-fallback-detail');
+  if(msg) detail.textContent = msg;
+  notice.classList.add('show');
+}
+
+window.addEventListener('error', (e)=>{
+  showMapError('เกิดข้อผิดพลาด JavaScript: ' + (e.message || 'ไม่ทราบสาเหตุ') + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : ''));
+});
+window.addEventListener('unhandledrejection', (e)=>{
+  showMapError('เกิดข้อผิดพลาด (promise): ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason)));
+});
+
+(async function main(){
+  try{
+    const ok = await ensureLeaflet();
+    if(!ok){
+      showMapError('ไม่สามารถโหลดไลบรารีแผนที่ (Leaflet) ได้จากทุกแหล่งที่ลอง กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตของโทรศัพท์ แล้วลองเปิดไฟล์นี้อีกครั้ง');
+      renderColorRow();
+      return;
+    }
+    initMap();
+    renderColorRow();
+    document.getElementById('crosshair-banner').classList.remove('show');
+    await loadData();
+    if(plots.length && !selectedPlotId) selectedPlotId = plots[0].id;
+    renderAll();
+  }catch(err){
+    console.error('เริ่มระบบล้มเหลว:', err);
+    showMapError('เกิดข้อผิดพลาดตอนเริ่มระบบ: ' + err.message);
+  }
+})();
+</script>
+</body>
+</html>
