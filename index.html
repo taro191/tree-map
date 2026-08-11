@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.5</title>
+<title>ระบบแผนที่ต้นไม้ v1.6</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -231,14 +231,14 @@
   </div>
 
   <div id="topbar">
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.5</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.6</span></h1>
     <button id="menu-btn">☰</button>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.5</span></p>
+      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.6</span></p>
     </div>
     <div class="tabs">
       <button class="tab-btn active" data-tab="plots">แปลงที่ดิน</button>
@@ -707,6 +707,12 @@ function renderTreeTab(){
       <input type="file" accept="image/*" capture="environment" id="in-plot-camera" style="display:none;">
       <button class="btn secondary small" id="btn-take-plot-photo" style="width:100%;margin-top:8px;">${plot.photo ? '📷 ถ่ายรูปใหม่ (แทนที่รูปเดิม)' : '📷 ถ่ายรูปแปลง'}</button>
     </div>
+    <div class="plot-photo-section">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;">รูปเอกสารที่ดิน (ประทับลายน้ำอัตโนมัติ)</label>
+      ${plot.docPhoto ? `<img class="plot-photo-preview" src="${plot.docPhoto}">` : `<div class="plot-photo-placeholder">ยังไม่มีรูปเอกสารที่ดิน</div>`}
+      <input type="file" accept="image/*" id="in-plot-doc-photo" style="display:none;">
+      <button class="btn secondary small" id="btn-take-doc-photo" style="width:100%;margin-top:8px;">${plot.docPhoto ? '📄 ถ่าย/อัปโหลดใหม่ (แทนที่รูปเดิม)' : '📄 ถ่าย/อัปโหลดรูปเอกสารที่ดิน'}</button>
+    </div>
     <div class="mode-toggle">
       <span>โหมดเพิ่มต้นไม้ (คลิกบนแผนที่)</span>
       <div class="switch ${addMode?'on':''}" id="mode-switch"><div class="knob"></div></div>
@@ -743,6 +749,12 @@ function renderTreeTab(){
     const file = e.target.files[0];
     e.target.value = '';
     if(file) capturePlotPhoto(file);
+  };
+  document.getElementById('btn-take-doc-photo').onclick = ()=> document.getElementById('in-plot-doc-photo').click();
+  document.getElementById('in-plot-doc-photo').onchange = (e)=>{
+    const file = e.target.files[0];
+    e.target.value = '';
+    if(file) captureDocPhoto(file);
   };
   el.querySelectorAll('[data-deltree]').forEach(btn=>{
     btn.onclick = async ()=>{
@@ -920,6 +932,57 @@ function stampPlotPhoto(img, plot, pos){
   return canvas.toDataURL('image/jpeg', 0.85);
 }
 
+function watermarkDocPhoto(img){
+  const maxDim = 1600;
+  let w = img.naturalWidth, h = img.naturalHeight;
+  const scale = Math.min(1, maxDim / Math.max(w,h));
+  w = Math.round(w*scale); h = Math.round(h*scale);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, w, h);
+
+  const text = 'ใช้ประกอบเรื่องคาร์บอนเครดิตเท่านั้น';
+  const fontSize = Math.max(16, Math.round(w*0.045));
+  ctx.font = `bold ${fontSize}px sans-serif`;
+  ctx.fillStyle = 'rgba(200,30,30,0.32)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const textWidth = ctx.measureText(text).width;
+  const stepX = textWidth + fontSize*3;
+  const stepY = fontSize*4;
+  const diag = Math.ceil(Math.sqrt(w*w+h*h));
+
+  ctx.save();
+  ctx.translate(w/2, h/2);
+  ctx.rotate(-30*Math.PI/180);
+  for(let y=-diag; y<diag; y+=stepY){
+    for(let x=-diag; x<diag; x+=stepX){
+      ctx.fillText(text, x, y);
+    }
+  }
+  ctx.restore();
+
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+async function captureDocPhoto(file){
+  const plot = plots.find(p=>p.id===selectedPlotId);
+  if(!plot) return;
+  const btn = document.getElementById('btn-take-doc-photo');
+  if(btn){ btn.disabled = true; btn.textContent = 'กำลังประมวลผล...'; }
+  try{
+    const img = await loadImageFile(file);
+    plot.docPhoto = watermarkDocPhoto(img);
+    await savePlots();
+    renderTreeTab();
+  }catch(err){
+    alert('บันทึกรูปเอกสารไม่สำเร็จ: ' + err.message);
+    if(btn){ btn.disabled = false; btn.textContent = plot.docPhoto ? '📄 ถ่าย/อัปโหลดใหม่ (แทนที่รูปเดิม)' : '📄 ถ่าย/อัปโหลดรูปเอกสารที่ดิน'; }
+  }
+}
+
 async function capturePlotPhoto(file){
   const plot = plots.find(p=>p.id===selectedPlotId);
   if(!plot) return;
@@ -1008,7 +1071,7 @@ document.getElementById('btn-save-boundary').onclick = async ()=>{
     ownerContact: creatingPlot.ownerContact, docTitle: creatingPlot.docTitle,
     areaRai: creatingPlot.areaRai, areaNgan: creatingPlot.areaNgan, areaWa: creatingPlot.areaWa,
     district: creatingPlot.district, province: creatingPlot.province, postcode: creatingPlot.postcode,
-    photo: null, color: creatingPlot.color,
+    photo: null, docPhoto: null, color: creatingPlot.color,
     boundary: creatingPlot.points.slice()
   };
   plots.push(plot);
