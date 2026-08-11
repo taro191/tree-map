@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.6</title>
+<title>ระบบแผนที่ต้นไม้ v1.7</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -231,14 +231,14 @@
   </div>
 
   <div id="topbar">
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.6</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.7</span></h1>
     <button id="menu-btn">☰</button>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.6</span></p>
+      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.7</span></p>
     </div>
     <div class="tabs">
       <button class="tab-btn active" data-tab="plots">แปลงที่ดิน</button>
@@ -267,19 +267,21 @@
             <input id="in-plot-doc" placeholder="เช่น สปก 4-01ข">
           </div>
           <div class="field">
-            <label>เนื้อที่</label>
+            <label>เนื้อที่ (ไม่เกิน 30 ไร่ 0 งาน 0 ตารางวา)</label>
             <div style="display:flex;gap:8px;">
-              <input id="in-plot-rai" type="number" min="0" placeholder="ไร่" style="width:auto;flex:1;">
-              <input id="in-plot-ngan" type="number" min="0" max="3" placeholder="งาน" style="width:auto;flex:1;">
-              <input id="in-plot-wa" type="number" min="0" placeholder="ตร.วา" style="width:auto;flex:1;">
+              <input id="in-plot-rai" type="number" min="0" max="30" placeholder="ไร่" style="width:auto;flex:0 1 80px;">
+              <input id="in-plot-ngan" type="number" min="0" max="3" placeholder="งาน" style="width:auto;flex:0 1 80px;">
+              <input id="in-plot-wa" type="number" min="0" max="99" placeholder="ตร.วา" style="width:auto;flex:0 1 80px;">
             </div>
           </div>
           <div class="field">
             <label>ที่ตั้งแปลง</label>
-            <input id="in-plot-district" placeholder="อำเภอ" style="margin-bottom:8px;">
+            <input id="in-plot-postcode" placeholder="กรอกรหัสไปรษณีย์ (5 หลัก) เพื่อค้นหาที่อยู่" inputmode="numeric" maxlength="5" style="margin-bottom:6px;">
+            <div id="plot-address-status" style="font-size:11.5px;color:var(--muted);margin-bottom:6px;"></div>
+            <select id="in-plot-address-select" style="display:none;margin-bottom:8px;"></select>
             <div style="display:flex;gap:8px;">
+              <input id="in-plot-district" placeholder="อำเภอ" style="width:auto;flex:1;">
               <input id="in-plot-province" placeholder="จังหวัด" style="width:auto;flex:1;">
-              <input id="in-plot-postcode" placeholder="รหัสไปรษณีย์" style="width:auto;flex:1;max-width:130px;">
             </div>
           </div>
           <div class="field">
@@ -843,6 +845,78 @@ function addressText(plot){
   return parts.join(' ');
 }
 
+let thaiZipIndex = null;
+let thaiZipLoading = null;
+
+function loadThaiZipIndex(){
+  if(thaiZipIndex) return Promise.resolve(thaiZipIndex);
+  if(thaiZipLoading) return thaiZipLoading;
+  const base = 'https://raw.githubusercontent.com/kongvut/thai-province-data/master/api/latest/';
+  thaiZipLoading = Promise.all([
+    fetch(base+'sub_district.json').then(r=>r.json()),
+    fetch(base+'district.json').then(r=>r.json()),
+    fetch(base+'province.json').then(r=>r.json())
+  ]).then(([subs, districts, provinces])=>{
+    const provinceById = new Map(provinces.map(p=>[p.id, p.name_th]));
+    const districtById = new Map(districts.map(d=>[d.id, {name: d.name_th, provinceId: d.province_id}]));
+    const idx = new Map();
+    subs.forEach(s=>{
+      const d = districtById.get(s.district_id);
+      if(!d) return;
+      const province = provinceById.get(d.provinceId) || '';
+      const districtBare = d.name.replace(/^เขต/, '').replace(/^อำเภอ/, '');
+      const districtDisplay = d.name.startsWith('เขต') ? d.name : 'อำเภอ'+d.name;
+      const zip = String(s.zip_code);
+      if(!idx.has(zip)) idx.set(zip, []);
+      const arr = idx.get(zip);
+      if(!arr.some(x=>x.districtBare===districtBare && x.province===province)){
+        arr.push({districtBare, districtDisplay, province});
+      }
+    });
+    thaiZipIndex = idx;
+    return idx;
+  }).catch(err=>{
+    thaiZipLoading = null;
+    throw err;
+  });
+  return thaiZipLoading;
+}
+
+async function handlePostcodeInput(){
+  const pc = document.getElementById('in-plot-postcode').value.trim();
+  const statusEl = document.getElementById('plot-address-status');
+  const selectEl = document.getElementById('in-plot-address-select');
+  selectEl.style.display = 'none';
+  selectEl.innerHTML = '';
+  if(!/^\d{5}$/.test(pc)){ statusEl.textContent=''; return; }
+  statusEl.textContent = 'กำลังค้นหาที่อยู่...';
+  try{
+    const idx = await loadThaiZipIndex();
+    if(document.getElementById('in-plot-postcode').value.trim() !== pc) return; // ผู้ใช้พิมพ์ต่อระหว่างรอโหลด
+    const matches = idx.get(pc) || [];
+    if(matches.length === 0){
+      statusEl.textContent = 'ไม่พบข้อมูลที่อยู่จากรหัสไปรษณีย์นี้ กรุณากรอกอำเภอ/จังหวัดเอง';
+    } else if(matches.length === 1){
+      document.getElementById('in-plot-district').value = matches[0].districtBare;
+      document.getElementById('in-plot-province').value = matches[0].province;
+      statusEl.textContent = `พบที่อยู่: ${matches[0].districtDisplay} ${matches[0].province}`;
+    } else {
+      statusEl.textContent = `พบ ${matches.length} ที่อยู่ที่ตรงกับรหัสนี้ กรุณาเลือก:`;
+      selectEl.style.display = 'block';
+      selectEl.innerHTML = '<option value="">-- เลือกที่อยู่ --</option>' +
+        matches.map((m,i)=>`<option value="${i}">${escapeHtml(m.districtDisplay)} ${escapeHtml(m.province)}</option>`).join('');
+      selectEl.onchange = ()=>{
+        const m = matches[selectEl.value];
+        if(!m) return;
+        document.getElementById('in-plot-district').value = m.districtBare;
+        document.getElementById('in-plot-province').value = m.province;
+      };
+    }
+  }catch(err){
+    statusEl.textContent = 'โหลดข้อมูลที่อยู่ไม่สำเร็จ (ต้องใช้อินเทอร์เน็ต) กรุณากรอกอำเภอ/จังหวัดเอง';
+  }
+}
+
 function loadImageFile(file){
   return new Promise((resolve, reject)=>{
     const reader = new FileReader();
@@ -1007,6 +1081,9 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.onclick = ()=> switchTab(btn.dataset.tab);
 });
 
+document.getElementById('in-plot-postcode').addEventListener('focus', ()=> loadThaiZipIndex().catch(()=>{}));
+document.getElementById('in-plot-postcode').addEventListener('input', handlePostcodeInput);
+
 document.getElementById('btn-add-plot').onclick = ()=>{
   const name = document.getElementById('in-plot-name').value.trim();
   const ownerName = document.getElementById('in-owner-name').value.trim();
@@ -1019,6 +1096,7 @@ document.getElementById('btn-add-plot').onclick = ()=>{
   const province = document.getElementById('in-plot-province').value.trim();
   const postcode = document.getElementById('in-plot-postcode').value.trim();
   if(!name){ alert('กรุณากรอกชื่อแปลง'); return; }
+  if(areaRai && Number(areaRai) > 30){ alert('เนื้อที่ไร่ ใส่ได้ไม่เกิน 30 ไร่'); return; }
   creatingPlot = {
     name, ownerName, ownerContact, docTitle, areaRai, areaNgan, areaWa,
     district, province, postcode, color: editingColor, points: []
@@ -1087,6 +1165,8 @@ document.getElementById('btn-save-boundary').onclick = async ()=>{
   document.getElementById('in-plot-district').value='';
   document.getElementById('in-plot-province').value='';
   document.getElementById('in-plot-postcode').value='';
+  document.getElementById('plot-address-status').textContent='';
+  document.getElementById('in-plot-address-select').style.display='none';
   editingColor = COLORS[plots.length % COLORS.length];
   renderColorRow();
   endBoundaryCreation();
