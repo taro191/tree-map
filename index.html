@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.8</title>
+<title>ระบบแผนที่ต้นไม้ v1.9</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -231,14 +231,14 @@
   </div>
 
   <div id="topbar">
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.8</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.9</span></h1>
     <button id="menu-btn">☰</button>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.8</span></p>
+      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.9</span></p>
     </div>
     <div class="tabs">
       <button class="tab-btn active" data-tab="plots">แปลงที่ดิน</button>
@@ -247,6 +247,7 @@
 
     <div class="panel active" id="panel-plots">
       <div id="plot-list"></div>
+      <div id="plot-detail"></div>
       <div id="new-plot-form">
         <div id="plot-step-info">
           <h3 style="font-size:14px;margin-bottom:10px;">+ เพิ่มแปลงใหม่</h3>
@@ -696,6 +697,39 @@ function renderPlotList(){
   });
 }
 
+function renderPlotDetail(){
+  const el = document.getElementById('plot-detail');
+  const plot = plots.find(p=>p.id===selectedPlotId);
+  if(!plot){ el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div class="active-plot-banner">รูปภาพของแปลง: <b>${escapeHtml(plot.name)}</b></div>
+    <div class="plot-photo-section">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;">รูปแปลง</label>
+      ${plot.photo ? `<img class="plot-photo-preview" src="${plot.photo}">` : `<div class="plot-photo-placeholder">ยังไม่มีรูปแปลง</div>`}
+      <input type="file" accept="image/*" capture="environment" id="in-plot-camera" style="display:none;">
+      <button class="btn secondary small" id="btn-take-plot-photo" style="width:100%;margin-top:8px;">${plot.photo ? '📷 ถ่ายรูปใหม่ (แทนที่รูปเดิม)' : '📷 ถ่ายรูปแปลง'}</button>
+    </div>
+    <div class="plot-photo-section">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;">รูปเอกสารที่ดิน (ประทับลายน้ำอัตโนมัติ)</label>
+      ${plot.docPhoto ? `<img class="plot-photo-preview" src="${plot.docPhoto}">` : `<div class="plot-photo-placeholder">ยังไม่มีรูปเอกสารที่ดิน</div>`}
+      <input type="file" accept="image/*" id="in-plot-doc-photo" style="display:none;">
+      <button class="btn secondary small" id="btn-take-doc-photo" style="width:100%;margin-top:8px;">${plot.docPhoto ? '📄 ถ่าย/อัปโหลดใหม่ (แทนที่รูปเดิม)' : '📄 ถ่าย/อัปโหลดรูปเอกสารที่ดิน'}</button>
+    </div>
+  `;
+  document.getElementById('btn-take-plot-photo').onclick = ()=> document.getElementById('in-plot-camera').click();
+  document.getElementById('in-plot-camera').onchange = (e)=>{
+    const file = e.target.files[0];
+    e.target.value = '';
+    if(file) capturePlotPhoto(file);
+  };
+  document.getElementById('btn-take-doc-photo').onclick = ()=> document.getElementById('in-plot-doc-photo').click();
+  document.getElementById('in-plot-doc-photo').onchange = (e)=>{
+    const file = e.target.files[0];
+    e.target.value = '';
+    if(file) captureDocPhoto(file);
+  };
+}
+
 function renderTreeTab(){
   const el = document.getElementById('tree-tab-body');
   if(!selectedPlotId){
@@ -722,17 +756,6 @@ function renderTreeTab(){
       ${plot.docTitle ? `<br>เอกสารสิทธิ์: ${escapeHtml(plot.docTitle)}` : ''}
       ${areaLine ? `<br>เนื้อที่: ${escapeHtml(areaLine)}` : ''}
       ${addrLine ? `<br>ที่ตั้ง: ${escapeHtml(addrLine)}` : ''}
-    </div>
-    <div class="plot-photo-section">
-      ${plot.photo ? `<img class="plot-photo-preview" src="${plot.photo}">` : `<div class="plot-photo-placeholder">ยังไม่มีรูปแปลง</div>`}
-      <input type="file" accept="image/*" capture="environment" id="in-plot-camera" style="display:none;">
-      <button class="btn secondary small" id="btn-take-plot-photo" style="width:100%;margin-top:8px;">${plot.photo ? '📷 ถ่ายรูปใหม่ (แทนที่รูปเดิม)' : '📷 ถ่ายรูปแปลง'}</button>
-    </div>
-    <div class="plot-photo-section">
-      <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;">รูปเอกสารที่ดิน (ประทับลายน้ำอัตโนมัติ)</label>
-      ${plot.docPhoto ? `<img class="plot-photo-preview" src="${plot.docPhoto}">` : `<div class="plot-photo-placeholder">ยังไม่มีรูปเอกสารที่ดิน</div>`}
-      <input type="file" accept="image/*" id="in-plot-doc-photo" style="display:none;">
-      <button class="btn secondary small" id="btn-take-doc-photo" style="width:100%;margin-top:8px;">${plot.docPhoto ? '📄 ถ่าย/อัปโหลดใหม่ (แทนที่รูปเดิม)' : '📄 ถ่าย/อัปโหลดรูปเอกสารที่ดิน'}</button>
     </div>
     <div class="mode-toggle">
       <span>โหมดเพิ่มต้นไม้ (คลิกบนแผนที่)</span>
@@ -765,18 +788,6 @@ function renderTreeTab(){
     renderTreeTab();
   };
   document.getElementById('btn-gps-tree').onclick = ()=> placeTreeAtGPS();
-  document.getElementById('btn-take-plot-photo').onclick = ()=> document.getElementById('in-plot-camera').click();
-  document.getElementById('in-plot-camera').onchange = (e)=>{
-    const file = e.target.files[0];
-    e.target.value = '';
-    if(file) capturePlotPhoto(file);
-  };
-  document.getElementById('btn-take-doc-photo').onclick = ()=> document.getElementById('in-plot-doc-photo').click();
-  document.getElementById('in-plot-doc-photo').onchange = (e)=>{
-    const file = e.target.files[0];
-    e.target.value = '';
-    if(file) captureDocPhoto(file);
-  };
   el.querySelectorAll('[data-deltree]').forEach(btn=>{
     btn.onclick = async ()=>{
       const id = btn.dataset.deltree;
@@ -839,6 +850,7 @@ function switchTab(name){
 
 function renderAll(){
   renderPlotList();
+  renderPlotDetail();
   renderTreeTab();
   renderMarkers();
   renderBoundaries();
@@ -1069,7 +1081,7 @@ async function captureDocPhoto(file){
     const img = await loadImageFile(file);
     plot.docPhoto = watermarkDocPhoto(img);
     await apiSavePlot(plot);
-    renderTreeTab();
+    renderPlotDetail();
   }catch(err){
     alert('บันทึกรูปเอกสารไม่สำเร็จ: ' + err.message);
     if(btn){ btn.disabled = false; btn.textContent = plot.docPhoto ? '📄 ถ่าย/อัปโหลดใหม่ (แทนที่รูปเดิม)' : '📄 ถ่าย/อัปโหลดรูปเอกสารที่ดิน'; }
@@ -1088,7 +1100,7 @@ async function capturePlotPhoto(file){
     catch(e){ /* ไม่มีพิกัด GPS ก็ยังประทับข้อมูลอื่นได้ */ }
     plot.photo = stampPlotPhoto(img, plot, pos);
     await apiSavePlot(plot);
-    renderTreeTab();
+    renderPlotDetail();
   }catch(err){
     alert('ถ่ายรูปไม่สำเร็จ: ' + err.message);
     if(btn){ btn.disabled = false; btn.textContent = plot.photo ? '📷 ถ่ายรูปใหม่ (แทนที่รูปเดิม)' : '📷 ถ่ายรูปแปลง'; }
