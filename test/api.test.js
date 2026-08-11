@@ -1,0 +1,137 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { createApp } = require('../server/app');
+const { createMemoryStore } = require('./memoryStore');
+
+function startServer() {
+  const store = createMemoryStore();
+  const app = createApp(store);
+  return new Promise((resolve) => {
+    const server = app.listen(0, () => {
+      const { port } = server.address();
+      resolve({ server, base: `http://127.0.0.1:${port}` });
+    });
+  });
+}
+
+test('health check', async () => {
+  const { server, base } = await startServer();
+  const res = await fetch(`${base}/healthz`);
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { ok: true });
+  server.close();
+});
+
+test('serves index.html at /', async () => {
+  const { server, base } = await startServer();
+  const res = await fetch(`${base}/`);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /html/);
+  server.close();
+});
+
+test('plot CRUD lifecycle', async () => {
+  const { server, base } = await startServer();
+
+  // no plots initially
+  let res = await fetch(`${base}/api/plots`);
+  assert.deepEqual(await res.json(), []);
+
+  // reject missing name
+  res = await fetch(`${base}/api/plots/p1`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
+  });
+  assert.equal(res.status, 400);
+
+  // create plot
+  const plot = {
+    name: 'แปลง A1', ownerName: 'สมชาย', ownerContact: '0812345678',
+    docTitle: 'สปก 4-01ข', areaRai: '6', areaNgan: '1', areaWa: '',
+    district: 'หนองกี่', province: 'บุรีรัมย์', postcode: '31210',
+    color: '#3D6B4A', boundary: [{ lat: 13.7, lng: 100.5 }, { lat: 13.71, lng: 100.5 }, { lat: 13.71, lng: 100.51 }],
+    photo: null, docPhoto: null
+  };
+  res = await fetch(`${base}/api/plots/p1`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(plot)
+  });
+  assert.equal(res.status, 200);
+  const saved = await res.json();
+  assert.equal(saved.id, 'p1');
+  assert.equal(saved.name, 'แปลง A1');
+  assert.equal(saved.postcode, '31210');
+  assert.equal(saved.boundary.length, 3);
+
+  // appears in list
+  res = await fetch(`${base}/api/plots`);
+  const list = await res.json();
+  assert.equal(list.length, 1);
+  assert.equal(list[0].id, 'p1');
+
+  // update (upsert) same id
+  res = await fetch(`${base}/api/plots/p1`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...plot, name: 'แปลง A1 แก้ไข', photo: 'data:image/jpeg;base64,xxx' })
+  });
+  const updated = await res.json();
+  assert.equal(updated.name, 'แปลง A1 แก้ไข');
+  assert.equal(updated.photo, 'data:image/jpeg;base64,xxx');
+  res = await fetch(`${base}/api/plots`);
+  assert.equal((await res.json()).length, 1);
+
+  server.close();
+});
+
+test('tree CRUD + validation + cascade delete on plot removal', async () => {
+  const { server, base } = await startServer();
+
+  // create a plot first
+  await fetch(`${base}/api/plots/p1`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'แปลง A1', boundary: [] })
+  });
+
+  // reject missing plotId
+  let res = await fetch(`${base}/api/trees/t1`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lat: 13.7, lng: 100.5 })
+  });
+  assert.equal(res.status, 400);
+
+  // reject non-numeric lat/lng
+  res = await fetch(`${base}/api/trees/t1`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plotId: 'p1', lat: '13.7', lng: 100.5 })
+  });
+  assert.equal(res.status, 400);
+
+  // create tree
+  res = await fetch(`${base}/api/trees/t1`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plotId: 'p1', seq: 1, name: 'มะม่วง', note: '', lat: 13.705, lng: 100.505 })
+  });
+  assert.equal(res.status, 200);
+  const tree = await res.json();
+  assert.equal(tree.plotId, 'p1');
+  assert.equal(tree.lat, 13.705);
+
+  res = await fetch(`${base}/api/trees`);
+  assert.equal((await res.json()).length, 1);
+
+  // delete the plot -> tree should cascade delete
+  res = await fetch(`${base}/api/plots/p1`, { method: 'DELETE' });
+  assert.equal(res.status, 204);
+
+  res = await fetch(`${base}/api/trees`);
+  assert.deepEqual(await res.json(), []);
+
+  res = await fetch(`${base}/api/plots`);
+  assert.deepEqual(await res.json(), []);
+
+  server.close();
+});
+
+test('deleting a nonexistent tree is idempotent', async () => {
+  const { server, base } = await startServer();
+  const res = await fetch(`${base}/api/trees/does-not-exist`, { method: 'DELETE' });
+  assert.equal(res.status, 204);
+  server.close();
+});

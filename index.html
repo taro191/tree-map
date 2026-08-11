@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.7</title>
+<title>ระบบแผนที่ต้นไม้ v1.8</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -231,14 +231,14 @@
   </div>
 
   <div id="topbar">
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.7</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.8</span></h1>
     <button id="menu-btn">☰</button>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.7</span></p>
+      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.8</span></p>
     </div>
     <div class="tabs">
       <button class="tab-btn active" data-tab="plots">แปลงที่ดิน</button>
@@ -410,19 +410,38 @@ async function ensureLeaflet(){
 
 async function loadData(){
   try{
-    const p = await window.storage.get('forest-plots');
-    plots = p ? JSON.parse(p.value) : [];
-  }catch(e){ plots = []; }
-  try{
-    const t = await window.storage.get('forest-trees');
-    trees = t ? JSON.parse(t.value) : [];
-  }catch(e){ trees = []; }
+    const [p, t] = await Promise.all([
+      fetch('/api/plots').then(r=>r.json()),
+      fetch('/api/trees').then(r=>r.json())
+    ]);
+    plots = p; trees = t;
+  }catch(e){
+    console.error('load data failed', e);
+    plots = []; trees = [];
+    showMapError('โหลดข้อมูลจากเซิร์ฟเวอร์ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่');
+  }
 }
-async function savePlots(){
-  try{ await window.storage.set('forest-plots', JSON.stringify(plots)); }catch(e){ console.error('save plots failed', e); }
+async function apiSavePlot(plot){
+  const res = await fetch('/api/plots/'+encodeURIComponent(plot.id), {
+    method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(plot)
+  });
+  if(!res.ok) throw new Error('บันทึกแปลงไม่สำเร็จ (HTTP '+res.status+')');
+  return res.json();
 }
-async function saveTrees(){
-  try{ await window.storage.set('forest-trees', JSON.stringify(trees)); }catch(e){ console.error('save trees failed', e); }
+async function apiDeletePlot(id){
+  const res = await fetch('/api/plots/'+encodeURIComponent(id), {method:'DELETE'});
+  if(!res.ok) throw new Error('ลบแปลงไม่สำเร็จ (HTTP '+res.status+')');
+}
+async function apiSaveTree(tree){
+  const res = await fetch('/api/trees/'+encodeURIComponent(tree.id), {
+    method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(tree)
+  });
+  if(!res.ok) throw new Error('บันทึกต้นไม้ไม่สำเร็จ (HTTP '+res.status+')');
+  return res.json();
+}
+async function apiDeleteTree(id){
+  const res = await fetch('/api/trees/'+encodeURIComponent(id), {method:'DELETE'});
+  if(!res.ok) throw new Error('ลบต้นไม้ไม่สำเร็จ (HTTP '+res.status+')');
 }
 
 function initMap(){
@@ -668,10 +687,10 @@ function renderPlotList(){
       if(boundaryMode){ alert('กำลังวาดขอบเขตแปลงอยู่ กรุณาบันทึกหรือยกเลิกก่อน'); return; }
       const id = btn.dataset.del;
       if(!confirm('ลบแปลงนี้และต้นไม้ทั้งหมดในแปลง?')) return;
+      try{ await apiDeletePlot(id); }catch(err){ alert(err.message); return; }
       plots = plots.filter(p=>p.id!==id);
       trees = trees.filter(t=>t.plotId!==id);
       if(selectedPlotId===id) selectedPlotId=null;
-      await savePlots(); await saveTrees();
       renderAll();
     };
   });
@@ -761,8 +780,8 @@ function renderTreeTab(){
   el.querySelectorAll('[data-deltree]').forEach(btn=>{
     btn.onclick = async ()=>{
       const id = btn.dataset.deltree;
+      try{ await apiDeleteTree(id); }catch(err){ alert(err.message); return; }
       trees = trees.filter(t=>t.id!==id);
-      await saveTrees();
       renderAll();
     };
   });
@@ -1049,7 +1068,7 @@ async function captureDocPhoto(file){
   try{
     const img = await loadImageFile(file);
     plot.docPhoto = watermarkDocPhoto(img);
-    await savePlots();
+    await apiSavePlot(plot);
     renderTreeTab();
   }catch(err){
     alert('บันทึกรูปเอกสารไม่สำเร็จ: ' + err.message);
@@ -1068,7 +1087,7 @@ async function capturePlotPhoto(file){
     try{ pos = await getCurrentPositionAsync(); }
     catch(e){ /* ไม่มีพิกัด GPS ก็ยังประทับข้อมูลอื่นได้ */ }
     plot.photo = stampPlotPhoto(img, plot, pos);
-    await savePlots();
+    await apiSavePlot(plot);
     renderTreeTab();
   }catch(err){
     alert('ถ่ายรูปไม่สำเร็จ: ' + err.message);
@@ -1152,9 +1171,9 @@ document.getElementById('btn-save-boundary').onclick = async ()=>{
     photo: null, docPhoto: null, color: creatingPlot.color,
     boundary: creatingPlot.points.slice()
   };
+  try{ await apiSavePlot(plot); }catch(err){ alert(err.message); return; }
   plots.push(plot);
   selectedPlotId = plot.id;
-  await savePlots();
   document.getElementById('in-plot-name').value='';
   document.getElementById('in-owner-name').value='';
   document.getElementById('in-owner-contact').value='';
@@ -1188,8 +1207,8 @@ document.getElementById('btn-save-tree').onclick = async ()=>{
     id: uid(), plotId: selectedPlotId, seq: nextSeq(selectedPlotId),
     name, photoUrl, note, lat: pendingLatLng.lat, lng: pendingLatLng.lng
   };
+  try{ await apiSaveTree(tree); }catch(err){ alert(err.message); return; }
   trees.push(tree);
-  await saveTrees();
   document.getElementById('modal-overlay').classList.remove('show');
   pendingLatLng = null;
   renderAll();

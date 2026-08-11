@@ -1,0 +1,29 @@
+{
+  "name": "tree-map",
+  "version": "1.0.0",
+  "description": "แผนที่กับต้นไม้",
+  "main": "server.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "node --test",
+    "start": "node server.js",
+    "dev": "node scripts/dev-memory-server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/taro191/tree-map.git"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/taro191/tree-map/issues"
+  },
+  "homepage": "https://github.com/taro191/tree-map#readme",
+  "private": true,
+  "dependencies": {
+    "express": "^5.2.1",
+    "pg": "^8.23.0"
+  }
+}
