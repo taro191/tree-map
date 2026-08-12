@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.9</title>
+<title>ระบบแผนที่ต้นไม้ v1.10</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -61,10 +61,6 @@
   #sidebar-header h1{font-size:18px;font-weight:700;color:var(--primary-dark);letter-spacing:-0.01em;}
   #sidebar-header p{margin:4px 0 0;font-size:12.5px;color:var(--muted);}
 
-  .tabs{display:flex;border-bottom:1px solid var(--line);flex-shrink:0;}
-  .tab-btn{flex:1;padding:13px 0;background:none;border:none;font-family:inherit;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;}
-  .tab-btn.active{color:var(--primary-dark);border-bottom-color:var(--primary);}
-
   .panel{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 20px calc(env(safe-area-inset-bottom,0px) + 24px);display:none;}
   .panel.active{display:block;}
 
@@ -99,8 +95,6 @@
   .btn.secondary{background:transparent;border:1px solid var(--line);color:var(--ink);}
   .btn.secondary:hover{border-color:var(--primary);}
   .btn.small{width:auto;padding:9px 12px;font-size:13px;}
-
-  #new-plot-form{border-top:1px dashed var(--line);margin-top:14px;padding-top:14px;}
 
   .color-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
   .color-dot{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;}
@@ -231,26 +225,24 @@
   </div>
 
   <div id="topbar">
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.9</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.10</span></h1>
     <button id="menu-btn">☰</button>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.9</span></p>
+      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.10</span></p>
     </div>
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="plots">แปลงที่ดิน</button>
-      <button class="tab-btn" data-tab="trees">ต้นไม้</button>
+    <div class="panel active" id="view-home">
+      <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
+      <div id="plot-list"></div>
     </div>
 
-    <div class="panel active" id="panel-plots">
-      <div id="plot-list"></div>
-      <div id="plot-detail"></div>
-      <div id="new-plot-form">
-        <div id="plot-step-info">
-          <h3 style="font-size:14px;margin-bottom:10px;">+ เพิ่มแปลงใหม่</h3>
+    <div class="panel" id="view-plot-form">
+      <button class="btn secondary small" id="btn-back-home-from-form" style="margin-bottom:14px;">← กลับ</button>
+      <div id="plot-step-info">
+          <h3 style="font-size:14px;margin-bottom:10px;">ข้อมูลแปลงใหม่</h3>
           <div class="field">
             <label>ชื่อแปลง</label>
             <input id="in-plot-name" placeholder="เช่น แปลง A1">
@@ -311,7 +303,17 @@
       </div>
     </div>
 
-    <div class="panel" id="panel-trees">
+    <div class="panel" id="view-plot-detail">
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <button class="btn secondary small" id="btn-back-home-from-detail">← กลับ</button>
+        <button class="btn" id="btn-goto-add-tree" style="flex:1;">+ เพิ่มต้นไม้</button>
+      </div>
+      <div id="plot-detail-info"></div>
+      <div id="plot-detail"></div>
+    </div>
+
+    <div class="panel" id="view-trees">
+      <button class="btn secondary small" id="btn-back-detail-from-trees" style="margin-bottom:14px;">← กลับ</button>
       <div id="tree-tab-body"></div>
     </div>
   </div>
@@ -658,7 +660,7 @@ function renderColorRow(){
 function renderPlotList(){
   const el = document.getElementById('plot-list');
   if(plots.length===0){
-    el.innerHTML = '<div class="empty-hint">ยังไม่มีแปลง<br>เพิ่มแปลงแรกของคุณด้านล่าง</div>';
+    el.innerHTML = '<div class="empty-hint">ยังไม่มีแปลง<br>กดปุ่ม + เพิ่มแปลงใหม่ ด้านบนเพื่อเริ่มต้น</div>';
     return;
   }
   el.innerHTML = '';
@@ -678,7 +680,7 @@ function renderPlotList(){
       if(boundaryMode){ alert('กำลังวาดขอบเขตแปลงอยู่ กรุณาบันทึกหรือยกเลิกก่อน'); return; }
       selectedPlotId = p.id;
       renderAll();
-      switchTab('trees');
+      setView('plot-detail');
     };
     el.appendChild(card);
   });
@@ -695,6 +697,24 @@ function renderPlotList(){
       renderAll();
     };
   });
+}
+
+function renderPlotDetailInfo(){
+  const el = document.getElementById('plot-detail-info');
+  const plot = plots.find(p=>p.id===selectedPlotId);
+  if(!plot){ el.innerHTML = ''; return; }
+  const count = trees.filter(t=>t.plotId===plot.id).length;
+  const areaLine = areaText(plot);
+  const addrLine = addressText(plot);
+  el.innerHTML = `
+    <div class="active-plot-banner">
+      <b>${escapeHtml(plot.name)}</b> · เจ้าของ: ${escapeHtml(plot.ownerName||'-')}${plot.ownerContact? ' · '+escapeHtml(plot.ownerContact):''}
+      ${plot.docTitle ? `<br>เอกสารสิทธิ์: ${escapeHtml(plot.docTitle)}` : ''}
+      ${areaLine ? `<br>เนื้อที่: ${escapeHtml(areaLine)}` : ''}
+      ${addrLine ? `<br>ที่ตั้ง: ${escapeHtml(addrLine)}` : ''}
+      <br>🌳 ${count} ต้น
+    </div>
+  `;
 }
 
 function renderPlotDetail(){
@@ -733,7 +753,7 @@ function renderPlotDetail(){
 function renderTreeTab(){
   const el = document.getElementById('tree-tab-body');
   if(!selectedPlotId){
-    el.innerHTML = '<div class="empty-hint">เลือกแปลงจากแท็บ "แปลงที่ดิน" ก่อน<br>เพื่อเริ่มเพิ่มตำแหน่งต้นไม้</div>';
+    el.innerHTML = '<div class="empty-hint">กรุณาเลือกแปลงจากหน้าแรกก่อน<br>เพื่อเริ่มเพิ่มตำแหน่งต้นไม้</div>';
     return;
   }
   const plot = plots.find(p=>p.id===selectedPlotId);
@@ -748,15 +768,8 @@ function renderTreeTab(){
     return;
   }
 
-  const areaLine = areaText(plot);
-  const addrLine = addressText(plot);
   let html = `
-    <div class="active-plot-banner">
-      แปลงที่เลือก: <b>${escapeHtml(plot.name)}</b> · เจ้าของ: ${escapeHtml(plot.ownerName||'-')}
-      ${plot.docTitle ? `<br>เอกสารสิทธิ์: ${escapeHtml(plot.docTitle)}` : ''}
-      ${areaLine ? `<br>เนื้อที่: ${escapeHtml(areaLine)}` : ''}
-      ${addrLine ? `<br>ที่ตั้ง: ${escapeHtml(addrLine)}` : ''}
-    </div>
+    <div class="active-plot-banner">กำลังเพิ่มต้นไม้ในแปลง: <b>${escapeHtml(plot.name)}</b></div>
     <div class="mode-toggle">
       <span>โหมดเพิ่มต้นไม้ (คลิกบนแผนที่)</span>
       <div class="switch ${addMode?'on':''}" id="mode-switch"><div class="knob"></div></div>
@@ -842,14 +855,14 @@ function fitToPlot(){
   map.fitBounds(bounds.pad(0.3));
 }
 
-function switchTab(name){
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===name));
-  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id==='panel-'+name));
+function setView(view){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id==='view-'+view));
   setSheetExpanded(true);
 }
 
 function renderAll(){
   renderPlotList();
+  renderPlotDetailInfo();
   renderPlotDetail();
   renderTreeTab();
   renderMarkers();
@@ -1108,9 +1121,24 @@ async function capturePlotPhoto(file){
 }
 
 // Events
-document.querySelectorAll('.tab-btn').forEach(btn=>{
-  btn.onclick = ()=> switchTab(btn.dataset.tab);
-});
+document.getElementById('btn-open-add-plot').onclick = ()=> setView('plot-form');
+
+document.getElementById('btn-back-home-from-form').onclick = ()=>{
+  if(boundaryMode){
+    if(!confirm('ยกเลิกการสร้างแปลงนี้?')) return;
+    endBoundaryCreation();
+  }
+  setView('home');
+};
+
+document.getElementById('btn-back-home-from-detail').onclick = ()=> setView('home');
+
+document.getElementById('btn-goto-add-tree').onclick = ()=> setView('trees');
+
+document.getElementById('btn-back-detail-from-trees').onclick = ()=>{
+  if(addMode){ addMode = false; updateBanner(); }
+  setView('plot-detail');
+};
 
 document.getElementById('in-plot-postcode').addEventListener('focus', ()=> loadThaiZipIndex().catch(()=>{}));
 document.getElementById('in-plot-postcode').addEventListener('input', handlePostcodeInput);
@@ -1138,7 +1166,6 @@ document.getElementById('btn-add-plot').onclick = ()=>{
   renderBoundaryPreview();
   updateBoundaryCount();
   updateBanner();
-  switchTab('plots');
 };
 
 function endBoundaryCreation(){
@@ -1202,7 +1229,7 @@ document.getElementById('btn-save-boundary').onclick = async ()=>{
   renderColorRow();
   endBoundaryCreation();
   renderAll();
-  switchTab('trees');
+  setView('home');
 };
 
 document.getElementById('btn-cancel-tree').onclick = ()=>{
@@ -1257,7 +1284,6 @@ window.addEventListener('unhandledrejection', (e)=>{
     renderColorRow();
     document.getElementById('crosshair-banner').classList.remove('show');
     await loadData();
-    if(plots.length && !selectedPlotId) selectedPlotId = plots[0].id;
     renderAll();
   }catch(err){
     console.error('เริ่มระบบล้มเหลว:', err);
