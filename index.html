@@ -749,8 +749,12 @@ function renderPlotDetail(){
     <div class="plot-photo-section">
       <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;">รูปเอกสารที่ดิน (ประทับลายน้ำอัตโนมัติ)</label>
       ${plot.docPhoto ? `<img class="plot-photo-preview" src="${plot.docPhoto}">` : `<div class="plot-photo-placeholder">ยังไม่มีรูปเอกสารที่ดิน</div>`}
-      <input type="file" accept="image/*" id="in-plot-doc-photo" style="display:none;">
-      <button class="btn secondary small" id="btn-take-doc-photo" style="width:100%;margin-top:8px;">${plot.docPhoto ? '📄 ถ่าย/อัปโหลดใหม่ (แทนที่รูปเดิม)' : '📄 ถ่าย/อัปโหลดรูปเอกสารที่ดิน'}</button>
+      <input type="file" accept="image/*" capture="environment" id="in-plot-doc-camera" style="display:none;">
+      <input type="file" accept="image/*" id="in-plot-doc-upload" style="display:none;">
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="btn secondary small" id="btn-take-doc-photo" style="flex:1;">📷 ถ่ายรูปเอกสาร</button>
+        <button class="btn secondary small" id="btn-upload-doc-photo" style="flex:1;">🖼️ อัปโหลดรูปเอกสาร</button>
+      </div>
     </div>
   `;
   document.getElementById('btn-take-plot-photo').onclick = ()=> document.getElementById('in-plot-camera').click();
@@ -759,8 +763,14 @@ function renderPlotDetail(){
     e.target.value = '';
     if(file) capturePlotPhoto(file);
   };
-  document.getElementById('btn-take-doc-photo').onclick = ()=> document.getElementById('in-plot-doc-photo').click();
-  document.getElementById('in-plot-doc-photo').onchange = (e)=>{
+  document.getElementById('btn-take-doc-photo').onclick = ()=> document.getElementById('in-plot-doc-camera').click();
+  document.getElementById('in-plot-doc-camera').onchange = (e)=>{
+    const file = e.target.files[0];
+    e.target.value = '';
+    if(file) captureDocPhoto(file);
+  };
+  document.getElementById('btn-upload-doc-photo').onclick = ()=> document.getElementById('in-plot-doc-upload').click();
+  document.getElementById('in-plot-doc-upload').onchange = (e)=>{
     const file = e.target.files[0];
     e.target.value = '';
     if(file) captureDocPhoto(file);
@@ -1111,8 +1121,10 @@ function watermarkDocPhoto(img){
 async function captureDocPhoto(file){
   const plot = plots.find(p=>p.id===selectedPlotId);
   if(!plot) return;
-  const btn = document.getElementById('btn-take-doc-photo');
-  if(btn){ btn.disabled = true; btn.textContent = 'กำลังประมวลผล...'; }
+  const takeBtn = document.getElementById('btn-take-doc-photo');
+  const uploadBtn = document.getElementById('btn-upload-doc-photo');
+  [takeBtn, uploadBtn].forEach(b=>{ if(b){ b.disabled = true; } });
+  if(uploadBtn) uploadBtn.textContent = 'กำลังประมวลผล...';
   try{
     const img = await loadImageFile(file);
     plot.docPhoto = watermarkDocPhoto(img);
@@ -1120,7 +1132,8 @@ async function captureDocPhoto(file){
     renderPlotDetail();
   }catch(err){
     alert('บันทึกรูปเอกสารไม่สำเร็จ: ' + err.message);
-    if(btn){ btn.disabled = false; btn.textContent = plot.docPhoto ? '📄 ถ่าย/อัปโหลดใหม่ (แทนที่รูปเดิม)' : '📄 ถ่าย/อัปโหลดรูปเอกสารที่ดิน'; }
+    if(takeBtn){ takeBtn.disabled = false; takeBtn.textContent = '📷 ถ่ายรูปเอกสาร'; }
+    if(uploadBtn){ uploadBtn.disabled = false; uploadBtn.textContent = '🖼️ อัปโหลดรูปเอกสาร'; }
   }
 }
 
