@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
+import Card from './Card';
 
 const ROLE_LABELS = {
   user: 'ผู้ใช้ทั่วไป',
@@ -77,8 +78,7 @@ export default function UsersPanel() {
   }
 
   return (
-    <div className="rounded-xl border border-stone-200 bg-white p-4">
-      <h3 className="mb-3 text-sm font-bold text-slate-700">ผู้ใช้ระบบ admin ({users.length})</h3>
+    <Card title={`ผู้ใช้ระบบ admin (${users.length})`}>
       {error && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
       <form onSubmit={onSubmit} className="mb-4 flex flex-wrap items-end gap-2">
         <div>
@@ -154,6 +154,6 @@ export default function UsersPanel() {
         })}
         {users.length === 0 && <li className="py-1.5 text-slate-400">ยังไม่มีผู้ใช้</li>}
       </ul>
-    </div>
+    </Card>
   );
 }

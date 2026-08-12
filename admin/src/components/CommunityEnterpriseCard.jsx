@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Card from './Card';
 
 const FIELDS = [
   ['name', 'ชื่อกลุ่ม', 'text'],
@@ -128,7 +129,25 @@ export default function CommunityEnterpriseCard({ entity, users, plots, canDelet
   }
 
   return (
-    <div className="rounded-xl border border-stone-200 bg-white p-4">
+    <Card
+      title={entity.name}
+      headerRight={
+        !editing && (
+          <div className="flex shrink-0 gap-2">
+            <button onClick={startEdit} className="rounded border border-gray-300 px-2 py-1 text-xs font-semibold text-slate-600 hover:border-emerald-600 hover:text-emerald-700">แก้ไข</button>
+            {canDelete && (
+              <button
+                disabled={busy || entity.members.length > 0} onClick={remove}
+                title={entity.members.length > 0 ? 'ต้องนำสมาชิกออกให้หมดก่อนจึงจะลบได้' : ''}
+                className="rounded border border-red-200 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                ลบ
+              </button>
+            )}
+          </div>
+        )
+      }
+    >
       {error && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
 
       {editing ? (
@@ -164,30 +183,13 @@ export default function CommunityEnterpriseCard({ entity, users, plots, canDelet
         </div>
       ) : (
         <div>
-          <div className="flex items-start justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-slate-800">{entity.name}</h3>
-              <p className="text-xs text-slate-500">
-                {[entity.registrationNo, [entity.district, entity.province].filter(Boolean).join(' '), entity.postcode].filter(Boolean).join(' · ') || '-'}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                {[entity.chairperson && `ประธาน: ${entity.chairperson}`, entity.contactPhone, entity.registeredDate].filter(Boolean).join(' · ')}
-              </p>
-              {entity.purpose && <p className="mt-1 text-xs text-slate-600">{entity.purpose}</p>}
-            </div>
-            <div className="flex shrink-0 gap-2">
-              <button onClick={startEdit} className="rounded border border-stone-300 px-2 py-1 text-xs hover:border-emerald-700">แก้ไข</button>
-              {canDelete && (
-                <button
-                  disabled={busy || entity.members.length > 0} onClick={remove}
-                  title={entity.members.length > 0 ? 'ต้องนำสมาชิกออกให้หมดก่อนจึงจะลบได้' : ''}
-                  className="rounded border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  ลบ
-                </button>
-              )}
-            </div>
-          </div>
+          <p className="text-xs text-slate-500">
+            {[entity.registrationNo, [entity.district, entity.province].filter(Boolean).join(' '), entity.postcode].filter(Boolean).join(' · ') || '-'}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            {[entity.chairperson && `ประธาน: ${entity.chairperson}`, entity.contactPhone, entity.registeredDate].filter(Boolean).join(' · ')}
+          </p>
+          {entity.purpose && <p className="mt-1 text-xs text-slate-600">{entity.purpose}</p>}
 
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <div>
@@ -240,6 +242,6 @@ export default function CommunityEnterpriseCard({ entity, users, plots, canDelet
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { api } from '../api';
 import MapView from '../components/MapView';
 import PlotsTable from '../components/PlotsTable';
 import TreesTable from '../components/TreesTable';
 import UsersPanel from '../components/UsersPanel';
+import Card from '../components/Card';
+import InfoBox from '../components/InfoBox';
+import PageHeader from '../components/PageHeader';
 
 export default function Dashboard() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [plots, setPlots] = useState([]);
   const [trees, setTrees] = useState([]);
   const [selectedPlotId, setSelectedPlotId] = useState(null);
@@ -68,63 +70,68 @@ export default function Dashboard() {
     setTrees(prev => prev.filter(t => t.id !== id));
   }
 
-  return (
-    <div className="min-h-screen bg-stone-100">
-      <header className="flex items-center justify-between border-b border-stone-200 bg-white px-6 py-3">
-        <div>
-          <h1 className="text-lg font-bold text-emerald-900">🌳 แผนที่ต้นไม้ · Admin</h1>
-          <p className="text-xs text-slate-500">
-            {[user?.email, user?.phone].filter(Boolean).join(' · ')}
-            {isEnterpriseAdmin && <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-amber-800">admin ประจำวิสาหกิจชุมชน</span>}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link to="/community-enterprises" className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-semibold hover:border-emerald-700">วิสาหกิจชุมชน</Link>
-          <a href="/api/admin/export/plots.csv" className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-semibold hover:border-emerald-700">Export แปลง (CSV)</a>
-          <a href="/api/admin/export/trees.csv" className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-semibold hover:border-emerald-700">Export ต้นไม้ (CSV)</a>
-          <a href="/api/admin/export/geojson" className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-semibold hover:border-emerald-700">Export GeoJSON</a>
-          <button onClick={logout} className="rounded-lg bg-stone-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-stone-900">ออกจากระบบ</button>
-        </div>
-      </header>
+  const identityLine = [user?.email, user?.phone].filter(Boolean).join(' · ');
 
-      <main className="mx-auto max-w-7xl space-y-6 p-6">
-        {error && <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
-        {loading ? (
-          <div className="py-16 text-center text-slate-400">กำลังโหลดข้อมูล...</div>
-        ) : (
+  return (
+    <div>
+      <PageHeader
+        title="แดชบอร์ด"
+        subtitle={identityLine || undefined}
+        actions={
           <>
-            <div className="h-96 overflow-hidden rounded-xl border border-stone-200">
+            <a href="/api/admin/export/plots.csv" className="rounded border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-emerald-600 hover:text-emerald-700">📥 Export แปลง (CSV)</a>
+            <a href="/api/admin/export/trees.csv" className="rounded border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-emerald-600 hover:text-emerald-700">📥 Export ต้นไม้ (CSV)</a>
+            <a href="/api/admin/export/geojson" className="rounded border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-emerald-600 hover:text-emerald-700">📥 Export GeoJSON</a>
+          </>
+        }
+      />
+
+      {error && <div className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
+
+      {loading ? (
+        <div className="py-16 text-center text-slate-400">กำลังโหลดข้อมูล...</div>
+      ) : (
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <InfoBox icon="📍" label="แปลงที่ดิน" value={scopedPlots.length} color="blue" />
+            <InfoBox icon="🌳" label="ต้นไม้" value={scopedTrees.length} color="green" />
+            {isEnterpriseAdmin ? (
+              <InfoBox icon="🏢" label="สิทธิ์ปัจจุบัน" value="admin วิสาหกิจชุมชน" color="amber" />
+            ) : (
+              <InfoBox icon="🛡️" label="สิทธิ์ปัจจุบัน" value="admin ระบบ" color="slate" />
+            )}
+          </div>
+
+          <Card title="แผนที่ภาพรวม" noPadding>
+            <div className="h-96">
               <MapView plots={scopedPlots} trees={scopedTrees} selectedPlotId={selectedPlotId} onSelectPlot={setSelectedPlotId} />
             </div>
+          </Card>
 
-            <section>
-              <h2 className="mb-2 text-sm font-bold text-slate-700">แปลงที่ดิน ({scopedPlots.length})</h2>
-              <PlotsTable
-                plots={scopedPlots} trees={scopedTrees} selectedPlotId={selectedPlotId}
-                onSelectPlot={id => setSelectedPlotId(prev => prev === id ? null : id)}
-                onSave={savePlot} onDelete={deletePlot}
-              />
-            </section>
+          <Card title={`แปลงที่ดิน (${scopedPlots.length})`} noPadding>
+            <PlotsTable
+              plots={scopedPlots} trees={scopedTrees} selectedPlotId={selectedPlotId}
+              onSelectPlot={id => setSelectedPlotId(prev => prev === id ? null : id)}
+              onSave={savePlot} onDelete={deletePlot}
+            />
+          </Card>
 
-            <section>
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-sm font-bold text-slate-700">ต้นไม้ ({visibleTrees.length})</h2>
-                <label className="flex items-center gap-2 text-xs text-slate-500">
-                  <input type="checkbox" checked={onlySelectedPlotTrees} onChange={e => setOnlySelectedPlotTrees(e.target.checked)} disabled={!selectedPlotId} />
-                  แสดงเฉพาะแปลงที่เลือกบนแผนที่/ตาราง
-                </label>
-              </div>
-              <TreesTable trees={visibleTrees} plotsById={plotsById} onSave={saveTree} onDelete={deleteTree} />
-            </section>
+          <Card
+            title={`ต้นไม้ (${visibleTrees.length})`}
+            noPadding
+            headerRight={
+              <label className="flex items-center gap-2 text-xs font-normal text-slate-500">
+                <input type="checkbox" checked={onlySelectedPlotTrees} onChange={e => setOnlySelectedPlotTrees(e.target.checked)} disabled={!selectedPlotId} />
+                แสดงเฉพาะแปลงที่เลือกบนแผนที่/ตาราง
+              </label>
+            }
+          >
+            <TreesTable trees={visibleTrees} plotsById={plotsById} onSave={saveTree} onDelete={deleteTree} />
+          </Card>
 
-            {user?.role === 'admin' && (
-              <section>
-                <UsersPanel />
-              </section>
-            )}
-          </>
-        )}
-      </main>
+          {user?.role === 'admin' && <UsersPanel />}
+        </div>
+      )}
     </div>
   );
 }

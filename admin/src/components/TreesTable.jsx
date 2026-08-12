@@ -31,9 +31,9 @@ export default function TreesTable({ trees, plotsById, onSave, onDelete }) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white">
+    <div className="overflow-x-auto">
       <table className="w-full min-w-[700px] text-sm">
-        <thead className="bg-stone-50 text-left text-xs font-semibold uppercase text-slate-500">
+        <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase text-slate-500">
           <tr>
             <th className="px-3 py-2">แปลง</th>
             <th className="px-3 py-2">ลำดับ</th>
@@ -43,7 +43,7 @@ export default function TreesTable({ trees, plotsById, onSave, onDelete }) {
             <th className="px-3 py-2">จัดการ</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-stone-100">
+        <tbody className="divide-y divide-gray-100">
           {trees.map(t => {
             const isEditing = editingId === t.id;
             return (

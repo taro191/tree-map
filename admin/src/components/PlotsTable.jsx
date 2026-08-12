@@ -44,16 +44,16 @@ export default function PlotsTable({ plots, trees, selectedPlotId, onSelectPlot,
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white">
+    <div className="overflow-x-auto">
       <table className="w-full min-w-[900px] text-sm">
-        <thead className="bg-stone-50 text-left text-xs font-semibold uppercase text-slate-500">
+        <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase text-slate-500">
           <tr>
             {FIELDS.map(([key, label]) => <th key={key} className="px-3 py-2">{label}</th>)}
             <th className="px-3 py-2">ต้นไม้</th>
             <th className="px-3 py-2">จัดการ</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-stone-100">
+        <tbody className="divide-y divide-gray-100">
           {plots.map(p => {
             const isEditing = editingId === p.id;
             const treeCount = trees.filter(t => t.plotId === p.id).length;

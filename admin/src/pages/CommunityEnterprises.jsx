@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { api } from '../api';
 import CommunityEnterpriseCard from '../components/CommunityEnterpriseCard';
+import Card from '../components/Card';
+import PageHeader from '../components/PageHeader';
 
 export default function CommunityEnterprises() {
   const { user } = useAuth();
@@ -79,34 +80,30 @@ export default function CommunityEnterprises() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-100">
-      <header className="flex items-center justify-between border-b border-stone-200 bg-white px-6 py-3">
-        <div>
-          <h1 className="text-lg font-bold text-emerald-900">🌳 วิสาหกิจชุมชน</h1>
-          <p className="text-xs text-slate-500">จัดการกลุ่ม, สมาชิก, และแปลงที่ดินที่สังกัด</p>
-        </div>
-        <Link to="/" className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-semibold hover:border-emerald-700">← กลับหน้าแดชบอร์ด</Link>
-      </header>
+    <div>
+      <PageHeader title="วิสาหกิจชุมชน" subtitle="จัดการกลุ่ม, สมาชิก, และแปลงที่ดินที่สังกัด" />
 
-      <main className="mx-auto max-w-5xl space-y-4 p-6">
-        {error && <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
+      {error && <div className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
 
+      <div className="space-y-4">
         {isAdmin && (
-          <form onSubmit={createEntity} className="flex items-end gap-2 rounded-xl border border-stone-200 bg-white p-4">
-            <div className="flex-1">
-              <label className="mb-1 block text-xs font-semibold text-slate-500">ชื่อวิสาหกิจชุมชนใหม่</label>
-              <input
-                value={newName} onChange={e => setNewName(e.target.value)}
-                className="w-full rounded-lg border border-stone-300 px-3 py-1.5 text-sm focus:border-emerald-600 focus:outline-none"
-              />
-            </div>
-            <button
-              type="submit" disabled={creating || !newName.trim()}
-              className="rounded-lg bg-emerald-800 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-900 disabled:opacity-50"
-            >
-              {creating ? 'กำลังเพิ่ม...' : '+ เพิ่มกลุ่ม'}
-            </button>
-          </form>
+          <Card title="เพิ่มวิสาหกิจชุมชนใหม่">
+            <form onSubmit={createEntity} className="flex items-end gap-2">
+              <div className="flex-1">
+                <label className="mb-1 block text-xs font-semibold text-slate-500">ชื่อวิสาหกิจชุมชนใหม่</label>
+                <input
+                  value={newName} onChange={e => setNewName(e.target.value)}
+                  className="w-full rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-emerald-600 focus:outline-none"
+                />
+              </div>
+              <button
+                type="submit" disabled={creating || !newName.trim()}
+                className="rounded bg-emerald-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+              >
+                {creating ? 'กำลังเพิ่ม...' : '+ เพิ่มกลุ่ม'}
+              </button>
+            </form>
+          </Card>
         )}
 
         {loading ? (
@@ -131,7 +128,7 @@ export default function CommunityEnterprises() {
             {entities.length === 0 && <div className="py-8 text-center text-slate-400">ยังไม่มีวิสาหกิจชุมชน</div>}
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }
