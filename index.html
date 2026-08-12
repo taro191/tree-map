@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.10</title>
+<title>ระบบแผนที่ต้นไม้ v1.11</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -138,8 +138,9 @@
   .tree-info{flex:1;min-width:0;}
   .tree-info .tname{font-weight:600;font-size:13.5px;}
   .tree-info .tspecies{font-size:12px;color:var(--muted);}
-  .tree-item .del-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;opacity:.5;align-self:flex-start;}
+  .tree-item .del-btn, .tree-item .edit-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;opacity:.5;align-self:flex-start;}
   .tree-item .del-btn:hover{opacity:1;color:#b33;}
+  .tree-item .edit-btn:hover{opacity:1;color:var(--primary);}
 
   .empty-hint{font-size:12.5px;color:var(--muted);text-align:center;padding:24px 10px;line-height:1.6;}
 
@@ -220,7 +221,8 @@
     display:none;align-items:center;justify-content:center;
   }
   .modal-overlay.show{display:flex;}
-  .modal{background:white;border-radius:16px;padding:22px;width:min(92vw,340px);box-shadow:0 20px 60px rgba(0,0,0,.25);}
+  .modal{background:white;border-radius:16px;padding:22px;width:min(92vw,340px);max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);}
+  .modal .plot-photo-preview{max-height:150px;margin-bottom:6px;}
   .modal h3{font-size:17px;margin-bottom:14px;color:var(--primary-dark);}
 
   ::-webkit-scrollbar{width:6px;}
@@ -247,13 +249,13 @@
         <button id="menu-item-toggle-sheet">⬍ ย่อ/ขยายแผงข้อมูล</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.10</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.11</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.10</span></p>
+      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.11</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -345,12 +347,38 @@
     <h3 id="modal-title">เพิ่มต้นไม้</h3>
     <div class="gps-readout" id="modal-latlng">lat: -, lng: -</div>
     <div class="field">
+      <label>ลำดับที่</label>
+      <input id="in-tree-seq" type="number" min="1">
+    </div>
+    <div class="field">
       <label>ชื่อ/สายพันธุ์ต้นไม้</label>
       <input id="in-tree-name" placeholder="เช่น มะม่วง, สัก">
     </div>
     <div class="field">
-      <label>ลิงก์รูปภาพ (ถ้ามี)</label>
-      <input id="in-tree-photo" placeholder="https://...">
+      <label>โค้ดต้นไม้ (ถ้ามี)</label>
+      <input id="in-tree-code" placeholder="เช่น รหัสป้ายต้นไม้">
+    </div>
+    <div class="field">
+      <label>รูปต้นไม้</label>
+      <img id="modal-tree-photo-preview" class="plot-photo-preview" style="display:none;">
+      <div id="modal-tree-photo-placeholder" class="plot-photo-placeholder">ยังไม่มีรูปต้นไม้</div>
+      <input type="file" accept="image/*" capture="environment" id="in-tree-photo-camera" style="display:none;">
+      <input type="file" accept="image/*" id="in-tree-photo-upload" style="display:none;">
+      <div style="display:flex;gap:8px;margin-top:6px;">
+        <button type="button" class="btn secondary small" id="btn-tree-photo-camera" style="flex:1;">📷 ถ่ายรูป</button>
+        <button type="button" class="btn secondary small" id="btn-tree-photo-upload" style="flex:1;">🖼️ อัปโหลด</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>รูปโค้ด/ป้ายต้นไม้ (ถ้ามี)</label>
+      <img id="modal-code-photo-preview" class="plot-photo-preview" style="display:none;">
+      <div id="modal-code-photo-placeholder" class="plot-photo-placeholder">ยังไม่มีรูปโค้ด</div>
+      <input type="file" accept="image/*" capture="environment" id="in-code-photo-camera" style="display:none;">
+      <input type="file" accept="image/*" id="in-code-photo-upload" style="display:none;">
+      <div style="display:flex;gap:8px;margin-top:6px;">
+        <button type="button" class="btn secondary small" id="btn-code-photo-camera" style="flex:1;">📷 ถ่ายรูปโค้ด</button>
+        <button type="button" class="btn secondary small" id="btn-code-photo-upload" style="flex:1;">🖼️ อัปโหลด</button>
+      </div>
     </div>
     <div class="field">
       <label>หมายเหตุ</label>
@@ -384,6 +412,10 @@ let walking = false;
 let walkWatchId = null;
 let lastWalkPoint = null;
 let walkUserMarker = null;
+
+let editingTreeId = null;
+let modalTreePhoto = null;
+let modalCodePhoto = null;
 
 function setSheetExpanded(expanded){
   document.getElementById('sidebar').classList.toggle('expanded', expanded);
@@ -509,7 +541,7 @@ function initMap(){
     if(!selectedPlotId){ alert('กรุณาเลือกแปลงก่อนเพิ่มต้นไม้'); return; }
     if(!plotHasBoundary(selectedPlotId)){ alert('แปลงนี้ยังไม่มีขอบเขตที่บันทึกไว้'); return; }
     pendingLatLng = e.latlng;
-    openTreeModal();
+    openAddTreeModal();
   });
 }
 
@@ -626,14 +658,70 @@ function stopWalkTracking(){
   lastWalkPoint = null;
 }
 
-function openTreeModal(){
-  document.getElementById('modal-title').textContent = 'เพิ่มต้นไม้ต้นที่ ' + (nextSeq(selectedPlotId));
-  document.getElementById('in-tree-name').value='';
-  document.getElementById('in-tree-photo').value='';
-  document.getElementById('in-tree-note').value='';
+function setModalPhotoPreview(prefix, value){
+  const img = document.getElementById('modal-'+prefix+'-photo-preview');
+  const placeholder = document.getElementById('modal-'+prefix+'-photo-placeholder');
+  if(value){
+    img.src = value; img.style.display = 'block';
+    placeholder.style.display = 'none';
+  } else {
+    img.style.display = 'none';
+    placeholder.style.display = 'block';
+  }
+}
+
+function openAddTreeModal(){
+  editingTreeId = null;
+  modalTreePhoto = null;
+  modalCodePhoto = null;
+  const seq = nextSeq(selectedPlotId);
+  document.getElementById('modal-title').textContent = 'เพิ่มต้นไม้ต้นที่ ' + seq;
+  document.getElementById('in-tree-seq').value = seq;
+  document.getElementById('in-tree-name').value = '';
+  document.getElementById('in-tree-code').value = '';
+  document.getElementById('in-tree-note').value = '';
+  setModalPhotoPreview('tree', null);
+  setModalPhotoPreview('code', null);
   document.getElementById('modal-latlng').textContent =
     `lat: ${pendingLatLng.lat.toFixed(6)}, lng: ${pendingLatLng.lng.toFixed(6)}`;
   document.getElementById('modal-overlay').classList.add('show');
+}
+
+function openEditTreeModal(tree){
+  editingTreeId = tree.id;
+  modalTreePhoto = tree.photoUrl || null;
+  modalCodePhoto = tree.codePhoto || null;
+  document.getElementById('modal-title').textContent = 'แก้ไขต้นไม้ต้นที่ ' + tree.seq;
+  document.getElementById('in-tree-seq').value = tree.seq;
+  document.getElementById('in-tree-name').value = tree.name || '';
+  document.getElementById('in-tree-code').value = tree.code || '';
+  document.getElementById('in-tree-note').value = tree.note || '';
+  setModalPhotoPreview('tree', modalTreePhoto);
+  setModalPhotoPreview('code', modalCodePhoto);
+  document.getElementById('modal-latlng').textContent =
+    `lat: ${tree.lat.toFixed(6)}, lng: ${tree.lng.toFixed(6)}`;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function resizeImageToDataUrl(img, maxDim, quality){
+  let w = img.naturalWidth, h = img.naturalHeight;
+  const scale = Math.min(1, maxDim / Math.max(w,h));
+  w = Math.round(w*scale); h = Math.round(h*scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+  return canvas.toDataURL('image/jpeg', quality);
+}
+
+async function handleTreeModalPhotoFile(file, kind){
+  try{
+    const img = await loadImageFile(file);
+    const dataUrl = resizeImageToDataUrl(img, 1000, 0.85);
+    if(kind === 'tree'){ modalTreePhoto = dataUrl; } else { modalCodePhoto = dataUrl; }
+    setModalPhotoPreview(kind, dataUrl);
+  }catch(err){
+    alert('อ่านรูปไม่สำเร็จ: ' + err.message);
+  }
 }
 
 let userMarker = null;
@@ -667,7 +755,7 @@ function placeTreeAtGPS(){
   if(!plotHasBoundary(selectedPlotId)){ alert('แปลงนี้ยังไม่มีขอบเขตที่บันทึกไว้'); return; }
   locateUser((latlng)=>{
     pendingLatLng = L.latLng(latlng.lat, latlng.lng);
-    openTreeModal();
+    openAddTreeModal();
   });
 }
 
@@ -821,14 +909,16 @@ function renderTreeTab(){
     html += '<div class="empty-hint">ยังไม่มีต้นไม้ในแปลงนี้<br>เปิดโหมดเพิ่มต้นไม้แล้วคลิกบนแผนที่</div>';
   } else {
     list.forEach(t=>{
+      const sub = [t.code ? 'โค้ด: '+escapeHtml(t.code) : '', escapeHtml(t.note||'')].filter(Boolean).join(' · ');
       html += `
         <div class="tree-item">
           <div class="tree-num">${t.seq}</div>
           ${t.photoUrl ? `<img class="tree-photo" src="${escapeAttr(t.photoUrl)}" onerror="this.style.display='none'">` : `<div class="tree-photo"></div>`}
           <div class="tree-info">
             <div class="tname">ต้นที่ ${t.seq}${t.name? ' · '+escapeHtml(t.name):''}</div>
-            <div class="tspecies">${escapeHtml(t.note||'')}</div>
+            <div class="tspecies">${sub}</div>
           </div>
+          <button class="edit-btn" data-edittree="${t.id}">✏️</button>
           <button class="del-btn" data-deltree="${t.id}">✕</button>
         </div>
       `;
@@ -842,6 +932,12 @@ function renderTreeTab(){
     renderTreeTab();
   };
   document.getElementById('btn-gps-tree').onclick = ()=> placeTreeAtGPS();
+  el.querySelectorAll('[data-edittree]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const tree = trees.find(t=>t.id===btn.dataset.edittree);
+      if(tree) openEditTreeModal(tree);
+    };
+  });
   el.querySelectorAll('[data-deltree]').forEach(btn=>{
     btn.onclick = async ()=>{
       const id = btn.dataset.deltree;
@@ -869,6 +965,7 @@ function renderMarkers(){
         <div class="pseq">ต้นที่ ${t.seq} · ${escapeHtml(plot?plot.name:'')}</div>
         <div class="pname">${escapeHtml(t.name||'ไม่ระบุชื่อ')}</div>
         ${photoHtml}
+        ${t.code?`<div class="pnote">โค้ด: ${escapeHtml(t.code)}</div>`:''}
         ${t.note?`<div class="pnote">${escapeHtml(t.note)}</div>`:''}
       </div>
     `);
@@ -1326,21 +1423,56 @@ document.getElementById('btn-save-boundary').onclick = async ()=>{
 document.getElementById('btn-cancel-tree').onclick = ()=>{
   document.getElementById('modal-overlay').classList.remove('show');
   pendingLatLng = null;
+  editingTreeId = null;
+};
+
+document.getElementById('btn-tree-photo-camera').onclick = ()=> document.getElementById('in-tree-photo-camera').click();
+document.getElementById('in-tree-photo-camera').onchange = (e)=>{
+  const file = e.target.files[0]; e.target.value = '';
+  if(file) handleTreeModalPhotoFile(file, 'tree');
+};
+document.getElementById('btn-tree-photo-upload').onclick = ()=> document.getElementById('in-tree-photo-upload').click();
+document.getElementById('in-tree-photo-upload').onchange = (e)=>{
+  const file = e.target.files[0]; e.target.value = '';
+  if(file) handleTreeModalPhotoFile(file, 'tree');
+};
+document.getElementById('btn-code-photo-camera').onclick = ()=> document.getElementById('in-code-photo-camera').click();
+document.getElementById('in-code-photo-camera').onchange = (e)=>{
+  const file = e.target.files[0]; e.target.value = '';
+  if(file) handleTreeModalPhotoFile(file, 'code');
+};
+document.getElementById('btn-code-photo-upload').onclick = ()=> document.getElementById('in-code-photo-upload').click();
+document.getElementById('in-code-photo-upload').onchange = (e)=>{
+  const file = e.target.files[0]; e.target.value = '';
+  if(file) handleTreeModalPhotoFile(file, 'code');
 };
 
 document.getElementById('btn-save-tree').onclick = async ()=>{
-  if(!pendingLatLng || !selectedPlotId) return;
+  if(!selectedPlotId) return;
+  if(!editingTreeId && !pendingLatLng) return;
+  const seq = Number(document.getElementById('in-tree-seq').value);
+  if(!seq || seq < 1){ alert('กรุณากรอกลำดับที่ให้ถูกต้อง'); return; }
   const name = document.getElementById('in-tree-name').value.trim();
-  const photoUrl = document.getElementById('in-tree-photo').value.trim();
+  const code = document.getElementById('in-tree-code').value.trim();
   const note = document.getElementById('in-tree-note').value.trim();
-  const tree = {
-    id: uid(), plotId: selectedPlotId, seq: nextSeq(selectedPlotId),
-    name, photoUrl, note, lat: pendingLatLng.lat, lng: pendingLatLng.lng
-  };
+
+  let tree;
+  if(editingTreeId){
+    const existing = trees.find(t=>t.id===editingTreeId);
+    tree = { ...existing, seq, name, code, note, photoUrl: modalTreePhoto, codePhoto: modalCodePhoto };
+  } else {
+    tree = {
+      id: uid(), plotId: selectedPlotId, seq,
+      name, code, note, photoUrl: modalTreePhoto, codePhoto: modalCodePhoto,
+      lat: pendingLatLng.lat, lng: pendingLatLng.lng
+    };
+  }
   try{ await apiSaveTree(tree); }catch(err){ alert(err.message); return; }
-  trees.push(tree);
+  const idx = trees.findIndex(t=>t.id===tree.id);
+  if(idx>=0) trees[idx] = tree; else trees.push(tree);
   document.getElementById('modal-overlay').classList.remove('show');
   pendingLatLng = null;
+  editingTreeId = null;
   renderAll();
 };
 

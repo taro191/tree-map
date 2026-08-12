@@ -34,6 +34,7 @@ function treesToCSV(trees, plotsById) {
     { label: 'plotName', get: t => (plotsById.get(t.plotId) || {}).name },
     { label: 'seq', get: t => t.seq },
     { label: 'name', get: t => t.name },
+    { label: 'code', get: t => t.code },
     { label: 'note', get: t => t.note },
     { label: 'lat', get: t => t.lat },
     { label: 'lng', get: t => t.lng }
@@ -67,7 +68,7 @@ function toGeoJSON(plots, trees) {
     features.push({
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [t.lng, t.lat] },
-      properties: { id: t.id, plotId: t.plotId, seq: t.seq, name: t.name, note: t.note }
+      properties: { id: t.id, plotId: t.plotId, seq: t.seq, name: t.name, code: t.code, note: t.note }
     });
   });
   return { type: 'FeatureCollection', features };

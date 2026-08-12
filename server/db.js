@@ -41,6 +41,8 @@ function createPgStore(connectionString) {
       seq: row.seq,
       name: row.name,
       photoUrl: row.photo_url,
+      code: row.code,
+      codePhoto: row.code_photo,
       note: row.note,
       lat: Number(row.lat),
       lng: Number(row.lng)
@@ -83,13 +85,15 @@ function createPgStore(connectionString) {
 
   async function upsertTree(tree) {
     const { rows } = await pool.query(
-      `INSERT INTO trees (id, plot_id, seq, name, photo_url, note, lat, lng)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      `INSERT INTO trees (id, plot_id, seq, name, photo_url, code, code_photo, note, lat, lng)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        ON CONFLICT (id) DO UPDATE SET
          plot_id=EXCLUDED.plot_id, seq=EXCLUDED.seq, name=EXCLUDED.name,
-         photo_url=EXCLUDED.photo_url, note=EXCLUDED.note, lat=EXCLUDED.lat, lng=EXCLUDED.lng
+         photo_url=EXCLUDED.photo_url, code=EXCLUDED.code, code_photo=EXCLUDED.code_photo,
+         note=EXCLUDED.note, lat=EXCLUDED.lat, lng=EXCLUDED.lng
        RETURNING *`,
-      [tree.id, tree.plotId, tree.seq, tree.name || null, tree.photoUrl || null, tree.note || null, tree.lat, tree.lng]
+      [tree.id, tree.plotId, tree.seq, tree.name || null, tree.photoUrl || null,
+       tree.code || null, tree.codePhoto || null, tree.note || null, tree.lat, tree.lng]
     );
     return treeRowToObj(rows[0]);
   }

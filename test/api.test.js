@@ -129,6 +129,52 @@ test('tree CRUD + validation + cascade delete on plot removal', async () => {
   server.close();
 });
 
+test('tree code/codePhoto round-trip and edit (seq, photo, code) via upsert', async () => {
+  const { server, base } = await startServer();
+
+  await fetch(`${base}/api/plots/p1`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'แปลง A1', boundary: [] })
+  });
+
+  let res = await fetch(`${base}/api/trees/t1`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      plotId: 'p1', seq: 1, name: 'มะม่วง', code: 'TAG-001',
+      photoUrl: 'data:image/jpeg;base64,aaa', codePhoto: 'data:image/jpeg;base64,bbb',
+      note: '', lat: 13.705, lng: 100.505
+    })
+  });
+  assert.equal(res.status, 200);
+  let tree = await res.json();
+  assert.equal(tree.code, 'TAG-001');
+  assert.equal(tree.codePhoto, 'data:image/jpeg;base64,bbb');
+  assert.equal(tree.photoUrl, 'data:image/jpeg;base64,aaa');
+
+  // edit: change seq, replace photo, change code
+  res = await fetch(`${base}/api/trees/t1`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      plotId: 'p1', seq: 5, name: 'มะม่วง', code: 'TAG-002',
+      photoUrl: 'data:image/jpeg;base64,ccc', codePhoto: 'data:image/jpeg;base64,bbb',
+      note: 'แก้ไขแล้ว', lat: 13.705, lng: 100.505
+    })
+  });
+  assert.equal(res.status, 200);
+  tree = await res.json();
+  assert.equal(tree.seq, 5);
+  assert.equal(tree.code, 'TAG-002');
+  assert.equal(tree.photoUrl, 'data:image/jpeg;base64,ccc');
+  assert.equal(tree.note, 'แก้ไขแล้ว');
+
+  res = await fetch(`${base}/api/trees`);
+  const list = await res.json();
+  assert.equal(list.length, 1);
+  assert.equal(list[0].seq, 5);
+
+  server.close();
+});
+
 test('deleting a nonexistent tree is idempotent', async () => {
   const { server, base } = await startServer();
   const res = await fetch(`${base}/api/trees/does-not-exist`, { method: 'DELETE' });
