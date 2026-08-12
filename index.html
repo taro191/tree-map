@@ -135,6 +135,13 @@
     display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;
   }
   .tree-photo{width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--tag);flex-shrink:0;}
+
+  .refpoint-photo-thumb{position:relative;width:70px;height:70px;flex-shrink:0;}
+  .refpoint-photo-thumb img{width:70px;height:70px;object-fit:cover;border-radius:8px;display:block;}
+  .refpoint-photo-thumb button{
+    position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;
+    background:#b33;color:white;border:2px solid white;font-size:11px;line-height:1;cursor:pointer;
+  }
   .tree-info{flex:1;min-width:0;}
   .tree-info .tname{font-weight:600;font-size:13.5px;}
   .tree-info .tspecies{font-size:12px;color:var(--muted);}
@@ -220,6 +227,7 @@
   .popup-card .pseq{font-size:11px;color:var(--bark);font-weight:700;margin-bottom:4px;}
   .popup-card img{width:100%;border-radius:6px;margin:6px 0;max-height:100px;object-fit:cover;}
   .popup-card .pnote{font-size:12px;color:var(--muted);}
+  .popup-card .ref-photos img{width:56px;height:56px;margin:0;flex-shrink:0;}
 
   /* Add tree modal */
   .modal-overlay{
@@ -404,6 +412,20 @@
     <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.5;">
       ต้องบันทึกจุดอ้างอิงของแปลงนี้ก่อน 1 จุด จึงจะเริ่มปักหมุดต้นไม้ได้ ต้นไม้ต้นแรกที่บันทึกหลังจากนี้จะเป็น "ต้นที่ 1"
     </p>
+    <div class="field">
+      <label>คำอธิบาย</label>
+      <textarea id="in-refpoint-description" placeholder="เช่น หลักเขต, ป้าย, จุดสังเกตเด่น"></textarea>
+    </div>
+    <div class="field">
+      <label>รูปถ่าย (สูงสุด 4 รูป)</label>
+      <div id="refpoint-photo-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
+      <input type="file" accept="image/*" capture="environment" id="in-refpoint-photo-camera" style="display:none;">
+      <input type="file" accept="image/*" id="in-refpoint-photo-upload" style="display:none;">
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="btn secondary small" id="btn-refpoint-photo-camera" style="flex:1;">📷 ถ่ายรูป</button>
+        <button type="button" class="btn secondary small" id="btn-refpoint-photo-upload" style="flex:1;">🖼️ อัปโหลด</button>
+      </div>
+    </div>
     <div style="display:flex;gap:8px;">
       <button class="btn secondary" id="btn-cancel-refpoint">ยกเลิก</button>
       <button class="btn" id="btn-save-refpoint">บันทึกจุดอ้างอิง</button>
@@ -436,6 +458,7 @@ let walkUserMarker = null;
 let editingTreeId = null;
 let modalTreePhoto = null;
 let modalCodePhoto = null;
+let modalRefPhotos = [];
 
 function setSheetExpanded(expanded){
   document.getElementById('sidebar').classList.toggle('expanded', expanded);
@@ -692,7 +715,40 @@ function setModalPhotoPreview(prefix, value){
   }
 }
 
+function renderRefPointPhotoList(){
+  const el = document.getElementById('refpoint-photo-list');
+  el.innerHTML = modalRefPhotos.map((src, i) => `
+    <div class="refpoint-photo-thumb">
+      <img src="${src}">
+      <button type="button" data-removerefphoto="${i}">✕</button>
+    </div>
+  `).join('');
+  el.querySelectorAll('[data-removerefphoto]').forEach(btn=>{
+    btn.onclick = ()=>{
+      modalRefPhotos.splice(Number(btn.dataset.removerefphoto), 1);
+      renderRefPointPhotoList();
+    };
+  });
+  const full = modalRefPhotos.length >= 4;
+  document.getElementById('btn-refpoint-photo-camera').disabled = full;
+  document.getElementById('btn-refpoint-photo-upload').disabled = full;
+}
+
+async function handleRefPointPhotoFile(file){
+  if(modalRefPhotos.length >= 4) return;
+  try{
+    const img = await loadImageFile(file);
+    modalRefPhotos.push(resizeImageToDataUrl(img, 1000, 0.85));
+    renderRefPointPhotoList();
+  }catch(err){
+    alert('อ่านรูปไม่สำเร็จ: ' + err.message);
+  }
+}
+
 function openRefPointModal(){
+  modalRefPhotos = [];
+  document.getElementById('in-refpoint-description').value = '';
+  renderRefPointPhotoList();
   document.getElementById('refpoint-modal-latlng').textContent =
     `lat: ${pendingLatLng.lat.toFixed(6)}, lng: ${pendingLatLng.lng.toFixed(6)}`;
   document.getElementById('refpoint-modal-overlay').classList.add('show');
@@ -1009,8 +1065,16 @@ function renderMarkers(){
       html:`<div class="ref-pin" style="background:${p.color}">🚩</div>`,
       iconSize:[28,28], iconAnchor:[14,28]
     });
+    const refPhotosHtml = (p.refPoint.photos||[]).map(src=>`<img src="${src}">`).join('');
     L.marker([p.refPoint.lat, p.refPoint.lng], {icon}).addTo(markerLayer)
-      .bindTooltip('จุดอ้างอิง: '+p.name, {sticky:true});
+      .bindTooltip('จุดอ้างอิง: '+p.name, {sticky:true})
+      .bindPopup(`
+        <div class="popup-card">
+          <div class="pseq">จุดอ้างอิง · ${escapeHtml(p.name)}</div>
+          ${refPhotosHtml ? `<div class="ref-photos" style="display:flex;flex-wrap:wrap;gap:4px;margin:6px 0;">${refPhotosHtml}</div>` : ''}
+          ${p.refPoint.description ? `<div class="pnote">${escapeHtml(p.refPoint.description)}</div>` : ''}
+        </div>
+      `);
   });
 }
 
@@ -1486,7 +1550,11 @@ document.getElementById('btn-save-refpoint').onclick = async ()=>{
   if(!pendingLatLng || !selectedPlotId) return;
   const plot = plots.find(p=>p.id===selectedPlotId);
   if(!plot) return;
-  const updatedPlot = { ...plot, refPoint: { lat: pendingLatLng.lat, lng: pendingLatLng.lng } };
+  const description = document.getElementById('in-refpoint-description').value.trim();
+  const updatedPlot = { ...plot, refPoint: {
+    lat: pendingLatLng.lat, lng: pendingLatLng.lng,
+    description, photos: modalRefPhotos.slice()
+  } };
   try{ await apiSavePlot(updatedPlot); }catch(err){ alert(err.message); return; }
   const idx = plots.findIndex(p=>p.id===plot.id);
   if(idx>=0) plots[idx] = updatedPlot;
@@ -1494,6 +1562,17 @@ document.getElementById('btn-save-refpoint').onclick = async ()=>{
   pendingLatLng = null;
   renderAll();
   updateBanner();
+};
+
+document.getElementById('btn-refpoint-photo-camera').onclick = ()=> document.getElementById('in-refpoint-photo-camera').click();
+document.getElementById('in-refpoint-photo-camera').onchange = (e)=>{
+  const file = e.target.files[0]; e.target.value = '';
+  if(file) handleRefPointPhotoFile(file);
+};
+document.getElementById('btn-refpoint-photo-upload').onclick = ()=> document.getElementById('in-refpoint-photo-upload').click();
+document.getElementById('in-refpoint-photo-upload').onchange = (e)=>{
+  const file = e.target.files[0]; e.target.value = '';
+  if(file) handleRefPointPhotoFile(file);
 };
 
 document.getElementById('btn-tree-photo-camera').onclick = ()=> document.getElementById('in-tree-photo-camera').click();

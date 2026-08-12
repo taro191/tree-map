@@ -25,7 +25,8 @@ function plotsToCSV(plots) {
     { label: 'postcode', get: p => p.postcode },
     { label: 'boundaryPointCount', get: p => (p.boundary || []).length },
     { label: 'refLat', get: p => p.refPoint ? p.refPoint.lat : '' },
-    { label: 'refLng', get: p => p.refPoint ? p.refPoint.lng : '' }
+    { label: 'refLng', get: p => p.refPoint ? p.refPoint.lng : '' },
+    { label: 'refDescription', get: p => p.refPoint ? p.refPoint.description : '' }
   ]);
 }
 
@@ -69,7 +70,7 @@ function toGeoJSON(plots, trees) {
       features.push({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [p.refPoint.lng, p.refPoint.lat] },
-        properties: { id: p.id + '-ref', plotId: p.id, type: 'referencePoint' }
+        properties: { id: p.id + '-ref', plotId: p.id, type: 'referencePoint', description: p.refPoint.description }
       });
     }
   });

@@ -91,16 +91,20 @@ test('plot reference point round-trip', async () => {
   let saved = await res.json();
   assert.equal(saved.refPoint, null);
 
+  const refPoint = {
+    lat: 13.71, lng: 100.51, description: 'หลักเขตหินก้อนใหญ่',
+    photos: ['data:image/jpeg;base64,aaa', 'data:image/jpeg;base64,bbb']
+  };
   res = await fetch(`${base}/api/plots/p1`, {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...plot, refPoint: { lat: 13.71, lng: 100.51 } })
+    body: JSON.stringify({ ...plot, refPoint })
   });
   saved = await res.json();
-  assert.deepEqual(saved.refPoint, { lat: 13.71, lng: 100.51 });
+  assert.deepEqual(saved.refPoint, refPoint);
 
   res = await fetch(`${base}/api/plots`);
   const list = await res.json();
-  assert.deepEqual(list[0].refPoint, { lat: 13.71, lng: 100.51 });
+  assert.deepEqual(list[0].refPoint, refPoint);
 
   server.close();
 });
