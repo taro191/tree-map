@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.20</title>
+<title>ระบบแผนที่ต้นไม้ v1.21</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -284,13 +284,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.20</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.21</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.20</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.21</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -486,8 +486,8 @@
       <input id="in-identify-phone" type="tel" placeholder="0812345678">
     </div>
     <div class="field">
-      <label>วันเดือนปีเกิด</label>
-      <input id="in-identify-dob" type="date">
+      <label>วันเดือนปีเกิด (พ.ศ.)</label>
+      <input id="in-identify-dob" type="text" inputmode="numeric" maxlength="8" placeholder="วว ดด ปปปป เช่น 15032533">
     </div>
     <div id="identify-error" style="color:#b33;font-size:12.5px;margin-bottom:10px;display:none;"></div>
     <button class="btn" id="btn-identify-login" style="margin-bottom:10px;">เข้าสู่ระบบ</button>
@@ -885,9 +885,15 @@ async function refreshAuthMenuState(){
   updateAuthMenuLabel();
 }
 
-function dobToPassword(dobStr){
-  const [y,m,d] = dobStr.split('-');
-  return d + m + y;
+function parseThaiDob(digits){
+  if(!/^\d{8}$/.test(digits)) return null;
+  const dd = digits.slice(0,2);
+  const mm = digits.slice(2,4);
+  const yyyyBE = Number(digits.slice(4,8));
+  if(Number(dd) < 1 || Number(dd) > 31 || Number(mm) < 1 || Number(mm) > 12) return null;
+  const yyyyCE = yyyyBE - 543;
+  if(yyyyCE < 1900 || yyyyCE > 2100) return null;
+  return { password: dd + mm + String(yyyyCE), iso: `${yyyyCE}-${mm}-${dd}` };
 }
 
 function showIdentifyError(msg){
@@ -1788,10 +1794,12 @@ document.getElementById('btn-identify-show-register').onclick = ()=>{
 
 document.getElementById('btn-identify-login').onclick = async ()=>{
   const phone = document.getElementById('in-identify-phone').value.trim();
-  const dob = document.getElementById('in-identify-dob').value;
+  const dob = document.getElementById('in-identify-dob').value.trim();
   document.getElementById('identify-error').style.display = 'none';
   if(!phone || !dob){ showIdentifyError('กรุณากรอกเบอร์โทรศัพท์และวันเกิด'); return; }
-  const password = dobToPassword(dob);
+  const parsedDob = parseThaiDob(dob);
+  if(!parsedDob){ showIdentifyError('กรุณากรอกวันเกิดให้ถูกต้อง รูปแบบ วว ดด ปปปป (พ.ศ.) รวม 8 หลัก เช่น 15032533'); return; }
+  const password = parsedDob.password;
   try{
     const res = await fetch('/api/auth/login', {
       method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
@@ -1819,17 +1827,19 @@ document.getElementById('btn-identify-login').onclick = async ()=>{
 
 document.getElementById('btn-identify-register').onclick = async ()=>{
   const phone = document.getElementById('in-identify-phone').value.trim();
-  const dob = document.getElementById('in-identify-dob').value;
+  const dob = document.getElementById('in-identify-dob').value.trim();
   const name = document.getElementById('in-identify-name').value.trim();
   const nationalId = document.getElementById('in-identify-nationalid').value.trim();
   document.getElementById('identify-error').style.display = 'none';
   if(!phone || !dob || !name || !nationalId){ showIdentifyError('กรุณากรอกข้อมูลให้ครบทุกช่อง'); return; }
   if(!/^\d{13}$/.test(nationalId)){ showIdentifyError('เลขประจำตัวประชาชนต้องเป็นตัวเลข 13 หลัก'); return; }
-  const password = dobToPassword(dob);
+  const parsedDob = parseThaiDob(dob);
+  if(!parsedDob){ showIdentifyError('กรุณากรอกวันเกิดให้ถูกต้อง รูปแบบ วว ดด ปปปป (พ.ศ.) รวม 8 หลัก เช่น 15032533'); return; }
+  const password = parsedDob.password;
   try{
     const res = await fetch('/api/auth/register', {
       method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
-      body: JSON.stringify({phone, password, name, nationalId, dob, fieldRegistration: true})
+      body: JSON.stringify({phone, password, name, nationalId, dob: parsedDob.iso, fieldRegistration: true})
     });
     if(res.ok){
       identifiedUser = await res.json();
