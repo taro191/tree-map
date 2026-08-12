@@ -3,12 +3,16 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const cookieParser = require('cookie-parser');
-const { hashPassword, comparePassword, setSessionCookie, clearSessionCookie, requireAuth } = require('./auth');
+const {
+  hashPassword, comparePassword, setSessionCookie, clearSessionCookie,
+  requireAuth, requireAdmin, requireAdminOrEnterpriseAdmin
+} = require('./auth');
 const { plotsToCSV, treesToCSV, toGeoJSON } = require('./export');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^0\d{9}$/;
 const NATIONAL_ID_RE = /^\d{13}$/;
+const VALID_ROLES = ['user', 'admin', 'enterprise_admin'];
 
 function normalizePhone(phone) {
   return (phone || '').replace(/[\s-]/g, '');
@@ -72,11 +76,17 @@ function createApp(store) {
       const name = (req.body && req.body.name || '').trim() || null;
       const nationalId = (req.body && req.body.nationalId || '').trim() || null;
       const dob = (req.body && req.body.dob || '').trim() || null;
-      const result = await createAccount(email, phone, password, { name, nationalId, dob });
+      // Self-registration from the field app (index.html) always gets the lowest-privilege
+      // role, never admin — the client-supplied flag can only *downgrade* from the default.
+      const isFieldRegistration = !!(req.body && req.body.fieldRegistration);
+      const role = isFieldRegistration ? 'user' : 'admin';
+      const result = await createAccount(email, phone, password, { name, nationalId, dob, role });
       if (result.error) return res.status(result.status).json({ error: result.error });
       setSessionCookie(res, result.user);
       res.status(201).json({
-        id: result.user.id, email: result.user.email, phone: result.user.phone, name: result.user.name
+        id: result.user.id, email: result.user.email, phone: result.user.phone,
+        name: result.user.name, role: result.user.role,
+        managedCommunityEnterpriseId: result.user.managedCommunityEnterpriseId
       });
     } catch (err) { next(err); }
   });
@@ -92,7 +102,10 @@ function createApp(store) {
         return res.status(401).json({ error: 'invalid email/phone or password' });
       }
       setSessionCookie(res, user);
-      res.json({ id: user.id, email: user.email, phone: user.phone });
+      res.json({
+        id: user.id, email: user.email, phone: user.phone,
+        role: user.role, managedCommunityEnterpriseId: user.managedCommunityEnterpriseId
+      });
     } catch (err) { next(err); }
   });
 
@@ -102,7 +115,10 @@ function createApp(store) {
   });
 
   app.get('/api/auth/me', requireAuth, (req, res) => {
-    res.json({ id: req.user.sub, email: req.user.email, phone: req.user.phone });
+    res.json({
+      id: req.user.sub, email: req.user.email, phone: req.user.phone,
+      role: req.user.role, managedCommunityEnterpriseId: req.user.managedCommunityEnterpriseId
+    });
   });
 
   app.get('/api/plots', async (req, res, next) => {
@@ -152,27 +168,70 @@ function createApp(store) {
     } catch (err) { next(err); }
   });
 
-  app.get('/api/admin/users', requireAuth, async (req, res, next) => {
+  app.get('/api/admin/users', requireAdminOrEnterpriseAdmin, async (req, res, next) => {
     try {
       const users = await store.listUsers();
-      res.json(users.map(u => ({ id: u.id, email: u.email, phone: u.phone, createdAt: u.createdAt })));
+      res.json(users.map(u => ({
+        id: u.id, email: u.email, phone: u.phone, name: u.name,
+        role: u.role, managedCommunityEnterpriseId: u.managedCommunityEnterpriseId,
+        createdAt: u.createdAt
+      })));
     } catch (err) { next(err); }
   });
 
-  app.post('/api/admin/users', requireAuth, async (req, res, next) => {
+  app.post('/api/admin/users', requireAdmin, async (req, res, next) => {
     try {
       const email = (req.body && req.body.email || '').trim().toLowerCase() || null;
       const phone = normalizePhone(req.body && req.body.phone) || null;
       const password = (req.body && req.body.password) || '';
-      const result = await createAccount(email, phone, password);
+      const role = VALID_ROLES.includes(req.body && req.body.role) ? req.body.role : 'admin';
+      const managedCommunityEnterpriseId = role === 'enterprise_admin'
+        ? ((req.body && req.body.managedCommunityEnterpriseId) || null) : null;
+      if (role === 'enterprise_admin') {
+        if (!managedCommunityEnterpriseId) return res.status(400).json({ error: 'managedCommunityEnterpriseId is required for enterprise_admin role' });
+        const ce = await store.listCommunityEnterprises();
+        if (!ce.some(e => e.id === managedCommunityEnterpriseId)) return res.status(404).json({ error: 'community enterprise not found' });
+      }
+      const result = await createAccount(email, phone, password, { role, managedCommunityEnterpriseId });
       if (result.error) return res.status(result.status).json({ error: result.error });
-      res.status(201).json({ id: result.user.id, email: result.user.email, phone: result.user.phone, createdAt: result.user.createdAt });
+      res.status(201).json({
+        id: result.user.id, email: result.user.email, phone: result.user.phone,
+        role: result.user.role, managedCommunityEnterpriseId: result.user.managedCommunityEnterpriseId,
+        createdAt: result.user.createdAt
+      });
     } catch (err) { next(err); }
   });
 
-  app.get('/api/admin/community-enterprises', requireAuth, async (req, res, next) => {
+  app.patch('/api/admin/users/:id/role', requireAdmin, async (req, res, next) => {
     try {
-      const entities = await store.listCommunityEnterprises();
+      const role = req.body && req.body.role;
+      if (!VALID_ROLES.includes(role)) return res.status(400).json({ error: 'invalid role' });
+      const managedCommunityEnterpriseId = role === 'enterprise_admin'
+        ? ((req.body && req.body.managedCommunityEnterpriseId) || null) : null;
+      if (role === 'enterprise_admin') {
+        if (!managedCommunityEnterpriseId) return res.status(400).json({ error: 'managedCommunityEnterpriseId is required for enterprise_admin role' });
+        const ce = await store.listCommunityEnterprises();
+        if (!ce.some(e => e.id === managedCommunityEnterpriseId)) return res.status(404).json({ error: 'community enterprise not found' });
+      }
+      const user = await store.updateUserRole(req.params.id, role, managedCommunityEnterpriseId);
+      if (!user) return res.status(404).json({ error: 'user not found' });
+      res.json({
+        id: user.id, email: user.email, phone: user.phone,
+        role: user.role, managedCommunityEnterpriseId: user.managedCommunityEnterpriseId
+      });
+    } catch (err) { next(err); }
+  });
+
+  function isOwnCommunityEnterprise(req, id) {
+    return req.user.role === 'admin' || req.user.managedCommunityEnterpriseId === id;
+  }
+
+  app.get('/api/admin/community-enterprises', requireAdminOrEnterpriseAdmin, async (req, res, next) => {
+    try {
+      let entities = await store.listCommunityEnterprises();
+      if (req.user.role === 'enterprise_admin') {
+        entities = entities.filter(e => e.id === req.user.managedCommunityEnterpriseId);
+      }
       const withMembers = await Promise.all(entities.map(async e => ({
         ...e,
         members: (await store.listCommunityEnterpriseMembers(e.id)).map(u => ({ id: u.id, email: u.email, phone: u.phone }))
@@ -181,8 +240,9 @@ function createApp(store) {
     } catch (err) { next(err); }
   });
 
-  app.put('/api/admin/community-enterprises/:id', requireAuth, async (req, res, next) => {
+  app.put('/api/admin/community-enterprises/:id', requireAdminOrEnterpriseAdmin, async (req, res, next) => {
     try {
+      if (!isOwnCommunityEnterprise(req, req.params.id)) return res.status(403).json({ error: 'forbidden' });
       const name = (req.body && req.body.name || '').trim();
       if (!name) return res.status(400).json({ error: 'name is required' });
       const entity = { ...req.body, id: req.params.id, name };
@@ -190,7 +250,7 @@ function createApp(store) {
     } catch (err) { next(err); }
   });
 
-  app.delete('/api/admin/community-enterprises/:id', requireAuth, async (req, res, next) => {
+  app.delete('/api/admin/community-enterprises/:id', requireAdmin, async (req, res, next) => {
     try {
       const memberCount = await store.countCommunityEnterpriseMembers(req.params.id);
       if (memberCount > 0) {
@@ -201,8 +261,9 @@ function createApp(store) {
     } catch (err) { next(err); }
   });
 
-  app.post('/api/admin/community-enterprises/:id/members', requireAuth, async (req, res, next) => {
+  app.post('/api/admin/community-enterprises/:id/members', requireAdminOrEnterpriseAdmin, async (req, res, next) => {
     try {
+      if (!isOwnCommunityEnterprise(req, req.params.id)) return res.status(403).json({ error: 'forbidden' });
       const userId = req.body && req.body.userId;
       if (!userId) return res.status(400).json({ error: 'userId is required' });
       const user = await store.findUserById(userId);
@@ -213,24 +274,34 @@ function createApp(store) {
     } catch (err) { next(err); }
   });
 
-  app.delete('/api/admin/community-enterprises/:id/members/:userId', requireAuth, async (req, res, next) => {
+  app.delete('/api/admin/community-enterprises/:id/members/:userId', requireAdminOrEnterpriseAdmin, async (req, res, next) => {
     try {
+      if (!isOwnCommunityEnterprise(req, req.params.id)) return res.status(403).json({ error: 'forbidden' });
       await store.removeCommunityEnterpriseMember(req.params.id, req.params.userId);
       res.status(204).end();
     } catch (err) { next(err); }
   });
 
-  app.get('/api/admin/export/plots.csv', requireAuth, async (req, res, next) => {
+  function scopePlotsForUser(req, plots) {
+    if (req.user.role !== 'enterprise_admin') return plots;
+    return plots.filter(p => p.communityEnterpriseId === req.user.managedCommunityEnterpriseId);
+  }
+
+  app.get('/api/admin/export/plots.csv', requireAdminOrEnterpriseAdmin, async (req, res, next) => {
     try {
+      const plots = scopePlotsForUser(req, await store.listPlots());
       res.set('Content-Type', 'text/csv; charset=utf-8');
       res.set('Content-Disposition', 'attachment; filename="plots.csv"');
-      res.send('﻿' + plotsToCSV(await store.listPlots()));
+      res.send('﻿' + plotsToCSV(plots));
     } catch (err) { next(err); }
   });
 
-  app.get('/api/admin/export/trees.csv', requireAuth, async (req, res, next) => {
+  app.get('/api/admin/export/trees.csv', requireAdminOrEnterpriseAdmin, async (req, res, next) => {
     try {
-      const [plots, trees] = await Promise.all([store.listPlots(), store.listTrees()]);
+      const [allPlots, allTrees] = await Promise.all([store.listPlots(), store.listTrees()]);
+      const plots = scopePlotsForUser(req, allPlots);
+      const plotIds = new Set(plots.map(p => p.id));
+      const trees = req.user.role === 'enterprise_admin' ? allTrees.filter(t => plotIds.has(t.plotId)) : allTrees;
       const plotsById = new Map(plots.map(p => [p.id, p]));
       res.set('Content-Type', 'text/csv; charset=utf-8');
       res.set('Content-Disposition', 'attachment; filename="trees.csv"');
@@ -238,9 +309,12 @@ function createApp(store) {
     } catch (err) { next(err); }
   });
 
-  app.get('/api/admin/export/geojson', requireAuth, async (req, res, next) => {
+  app.get('/api/admin/export/geojson', requireAdminOrEnterpriseAdmin, async (req, res, next) => {
     try {
-      const [plots, trees] = await Promise.all([store.listPlots(), store.listTrees()]);
+      const [allPlots, allTrees] = await Promise.all([store.listPlots(), store.listTrees()]);
+      const plots = scopePlotsForUser(req, allPlots);
+      const plotIds = new Set(plots.map(p => p.id));
+      const trees = req.user.role === 'enterprise_admin' ? allTrees.filter(t => plotIds.has(t.plotId)) : allTrees;
       res.set('Content-Type', 'application/geo+json; charset=utf-8');
       res.set('Content-Disposition', 'attachment; filename="tree-map.geojson"');
       res.json(toGeoJSON(plots, trees));

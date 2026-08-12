@@ -32,6 +32,7 @@ export const api = {
 
   listUsers: () => request('/api/admin/users'),
   addUser: (email, phone, password) => request('/api/admin/users', { method: 'POST', body: JSON.stringify({ email, phone, password }) }),
+  updateUserRole: (id, role, managedCommunityEnterpriseId) => request(`/api/admin/users/${encodeURIComponent(id)}/role`, { method: 'PATCH', body: JSON.stringify({ role, managedCommunityEnterpriseId }) }),
 
   listCommunityEnterprises: () => request('/api/admin/community-enterprises'),
   saveCommunityEnterprise: (entity) => request(`/api/admin/community-enterprises/${encodeURIComponent(entity.id)}`, { method: 'PUT', body: JSON.stringify(entity) }),

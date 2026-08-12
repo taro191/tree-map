@@ -36,9 +36,17 @@ function createMemoryStore() {
       const user = {
         id, email: email || null, phone: phone || null, passwordHash,
         name: extra.name || null, nationalId: extra.nationalId || null, dob: extra.dob || null,
+        role: extra.role || 'admin', managedCommunityEnterpriseId: extra.managedCommunityEnterpriseId || null,
         createdAt: new Date().toISOString()
       };
       users.set(id, user);
+      return user;
+    },
+    async updateUserRole(id, role, managedCommunityEnterpriseId) {
+      const user = users.get(id);
+      if(!user) return null;
+      user.role = role;
+      user.managedCommunityEnterpriseId = managedCommunityEnterpriseId || null;
       return user;
     },
     async findUserByEmail(email) {

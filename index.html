@@ -1639,7 +1639,7 @@ document.getElementById('btn-identify-register').onclick = async ()=>{
   try{
     const res = await fetch('/api/auth/register', {
       method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
-      body: JSON.stringify({phone, password, name, nationalId, dob})
+      body: JSON.stringify({phone, password, name, nationalId, dob, fieldRegistration: true})
     });
     if(res.ok){
       document.getElementById('identify-modal-overlay').classList.remove('show');

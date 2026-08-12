@@ -116,6 +116,7 @@ function createPgStore(connectionString) {
     return {
       id: row.id, email: row.email, phone: row.phone, passwordHash: row.password_hash,
       name: row.name, nationalId: row.national_id, dob: row.dob,
+      role: row.role, managedCommunityEnterpriseId: row.managed_community_enterprise_id,
       createdAt: row.created_at
     };
   }
@@ -123,10 +124,20 @@ function createPgStore(connectionString) {
   async function createUser(id, email, phone, passwordHash, extra) {
     extra = extra || {};
     const { rows } = await pool.query(
-      'INSERT INTO users (id, email, phone, password_hash, name, national_id, dob) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-      [id, email || null, phone || null, passwordHash, extra.name || null, extra.nationalId || null, extra.dob || null]
+      `INSERT INTO users (id, email, phone, password_hash, name, national_id, dob, role, managed_community_enterprise_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [id, email || null, phone || null, passwordHash, extra.name || null, extra.nationalId || null,
+       extra.dob || null, extra.role || 'admin', extra.managedCommunityEnterpriseId || null]
     );
     return userRowToObj(rows[0]);
+  }
+
+  async function updateUserRole(id, role, managedCommunityEnterpriseId) {
+    const { rows } = await pool.query(
+      'UPDATE users SET role = $2, managed_community_enterprise_id = $3 WHERE id = $1 RETURNING *',
+      [id, role, managedCommunityEnterpriseId || null]
+    );
+    return rows[0] ? userRowToObj(rows[0]) : null;
   }
 
   async function findUserByEmail(email) {
@@ -232,7 +243,7 @@ function createPgStore(connectionString) {
 
   return {
     pool, initSchema, listPlots, upsertPlot, deletePlot, listTrees, upsertTree, deleteTree,
-    createUser, findUserByEmail, findUserByPhone, findUserByNationalId, findUserById, listUsers,
+    createUser, updateUserRole, findUserByEmail, findUserByPhone, findUserByNationalId, findUserById, listUsers,
     listCommunityEnterprises, upsertCommunityEnterprise, deleteCommunityEnterprise,
     countCommunityEnterpriseMembers, listCommunityEnterpriseMembers,
     addCommunityEnterpriseMember, removeCommunityEnterpriseMember

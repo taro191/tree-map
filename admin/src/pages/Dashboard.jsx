@@ -32,10 +32,19 @@ export default function Dashboard() {
 
   useEffect(() => { reload(); }, []);
 
-  const plotsById = useMemo(() => new Map(plots.map(p => [p.id, p])), [plots]);
+  const isEnterpriseAdmin = user?.role === 'enterprise_admin';
+  const scopedPlots = useMemo(() => (
+    isEnterpriseAdmin ? plots.filter(p => p.communityEnterpriseId === user.managedCommunityEnterpriseId) : plots
+  ), [plots, isEnterpriseAdmin, user]);
+  const scopedPlotIds = useMemo(() => new Set(scopedPlots.map(p => p.id)), [scopedPlots]);
+  const scopedTrees = useMemo(() => (
+    isEnterpriseAdmin ? trees.filter(t => scopedPlotIds.has(t.plotId)) : trees
+  ), [trees, isEnterpriseAdmin, scopedPlotIds]);
+
+  const plotsById = useMemo(() => new Map(scopedPlots.map(p => [p.id, p])), [scopedPlots]);
   const visibleTrees = onlySelectedPlotTrees && selectedPlotId
-    ? trees.filter(t => t.plotId === selectedPlotId)
-    : trees;
+    ? scopedTrees.filter(t => t.plotId === selectedPlotId)
+    : scopedTrees;
 
   async function savePlot(plot) {
     const saved = await api.savePlot(plot);
@@ -64,7 +73,10 @@ export default function Dashboard() {
       <header className="flex items-center justify-between border-b border-stone-200 bg-white px-6 py-3">
         <div>
           <h1 className="text-lg font-bold text-emerald-900">🌳 แผนที่ต้นไม้ · Admin</h1>
-          <p className="text-xs text-slate-500">{user?.email}</p>
+          <p className="text-xs text-slate-500">
+            {[user?.email, user?.phone].filter(Boolean).join(' · ')}
+            {isEnterpriseAdmin && <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-amber-800">admin ประจำวิสาหกิจชุมชน</span>}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Link to="/community-enterprises" className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-semibold hover:border-emerald-700">รัฐวิสาหกิจชุมชน</Link>
@@ -82,13 +94,13 @@ export default function Dashboard() {
         ) : (
           <>
             <div className="h-96 overflow-hidden rounded-xl border border-stone-200">
-              <MapView plots={plots} trees={trees} selectedPlotId={selectedPlotId} onSelectPlot={setSelectedPlotId} />
+              <MapView plots={scopedPlots} trees={scopedTrees} selectedPlotId={selectedPlotId} onSelectPlot={setSelectedPlotId} />
             </div>
 
             <section>
-              <h2 className="mb-2 text-sm font-bold text-slate-700">แปลงที่ดิน ({plots.length})</h2>
+              <h2 className="mb-2 text-sm font-bold text-slate-700">แปลงที่ดิน ({scopedPlots.length})</h2>
               <PlotsTable
-                plots={plots} trees={trees} selectedPlotId={selectedPlotId}
+                plots={scopedPlots} trees={scopedTrees} selectedPlotId={selectedPlotId}
                 onSelectPlot={id => setSelectedPlotId(prev => prev === id ? null : id)}
                 onSave={savePlot} onDelete={deletePlot}
               />
@@ -105,9 +117,11 @@ export default function Dashboard() {
               <TreesTable trees={visibleTrees} plotsById={plotsById} onSave={saveTree} onDelete={deleteTree} />
             </section>
 
-            <section>
-              <UsersPanel />
-            </section>
+            {user?.role === 'admin' && (
+              <section>
+                <UsersPanel />
+              </section>
+            )}
           </>
         )}
       </main>

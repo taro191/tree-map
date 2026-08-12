@@ -20,7 +20,7 @@ function fileToDataUrl(file) {
   });
 }
 
-export default function CommunityEnterpriseCard({ entity, users, plots, onSave, onDelete, onAddMember, onRemoveMember, onLinkPlot, onUnlinkPlot }) {
+export default function CommunityEnterpriseCard({ entity, users, plots, canDelete = true, onSave, onDelete, onAddMember, onRemoveMember, onLinkPlot, onUnlinkPlot }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({});
   const [busy, setBusy] = useState(false);
@@ -177,13 +177,15 @@ export default function CommunityEnterpriseCard({ entity, users, plots, onSave, 
             </div>
             <div className="flex shrink-0 gap-2">
               <button onClick={startEdit} className="rounded border border-stone-300 px-2 py-1 text-xs hover:border-emerald-700">แก้ไข</button>
-              <button
-                disabled={busy || entity.members.length > 0} onClick={remove}
-                title={entity.members.length > 0 ? 'ต้องนำสมาชิกออกให้หมดก่อนจึงจะลบได้' : ''}
-                className="rounded border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                ลบ
-              </button>
+              {canDelete && (
+                <button
+                  disabled={busy || entity.members.length > 0} onClick={remove}
+                  title={entity.members.length > 0 ? 'ต้องนำสมาชิกออกให้หมดก่อนจึงจะลบได้' : ''}
+                  className="rounded border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  ลบ
+                </button>
+              )}
             </div>
           </div>
 

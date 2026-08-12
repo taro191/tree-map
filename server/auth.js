@@ -19,7 +19,10 @@ async function comparePassword(password, hash) {
 }
 
 function signToken(user) {
-  return jwt.sign({ sub: user.id, email: user.email, phone: user.phone }, getSecret(), { expiresIn: TOKEN_TTL });
+  return jwt.sign({
+    sub: user.id, email: user.email, phone: user.phone,
+    role: user.role || 'admin', managedCommunityEnterpriseId: user.managedCommunityEnterpriseId || null
+  }, getSecret(), { expiresIn: TOKEN_TTL });
 }
 
 function verifyToken(token) {
@@ -51,7 +54,23 @@ function requireAuth(req, res, next) {
   }
 }
 
+function requireAdmin(req, res, next) {
+  requireAuth(req, res, () => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'admin role required' });
+    next();
+  });
+}
+
+function requireAdminOrEnterpriseAdmin(req, res, next) {
+  requireAuth(req, res, () => {
+    if (req.user.role !== 'admin' && req.user.role !== 'enterprise_admin') {
+      return res.status(403).json({ error: 'admin or enterprise_admin role required' });
+    }
+    next();
+  });
+}
+
 module.exports = {
   COOKIE_NAME, hashPassword, comparePassword, signToken, verifyToken,
-  setSessionCookie, clearSessionCookie, requireAuth
+  setSessionCookie, clearSessionCookie, requireAuth, requireAdmin, requireAdminOrEnterpriseAdmin
 };

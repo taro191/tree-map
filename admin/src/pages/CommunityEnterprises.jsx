@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../AuthContext';
 import { api } from '../api';
 import CommunityEnterpriseCard from '../components/CommunityEnterpriseCard';
 
 export default function CommunityEnterprises() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [entities, setEntities] = useState([]);
   const [users, setUsers] = useState([]);
   const [plots, setPlots] = useState([]);
@@ -88,21 +91,23 @@ export default function CommunityEnterprises() {
       <main className="mx-auto max-w-5xl space-y-4 p-6">
         {error && <div className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
 
-        <form onSubmit={createEntity} className="flex items-end gap-2 rounded-xl border border-stone-200 bg-white p-4">
-          <div className="flex-1">
-            <label className="mb-1 block text-xs font-semibold text-slate-500">ชื่อรัฐวิสาหกิจชุมชนใหม่</label>
-            <input
-              value={newName} onChange={e => setNewName(e.target.value)}
-              className="w-full rounded-lg border border-stone-300 px-3 py-1.5 text-sm focus:border-emerald-600 focus:outline-none"
-            />
-          </div>
-          <button
-            type="submit" disabled={creating || !newName.trim()}
-            className="rounded-lg bg-emerald-800 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-900 disabled:opacity-50"
-          >
-            {creating ? 'กำลังเพิ่ม...' : '+ เพิ่มกลุ่ม'}
-          </button>
-        </form>
+        {isAdmin && (
+          <form onSubmit={createEntity} className="flex items-end gap-2 rounded-xl border border-stone-200 bg-white p-4">
+            <div className="flex-1">
+              <label className="mb-1 block text-xs font-semibold text-slate-500">ชื่อรัฐวิสาหกิจชุมชนใหม่</label>
+              <input
+                value={newName} onChange={e => setNewName(e.target.value)}
+                className="w-full rounded-lg border border-stone-300 px-3 py-1.5 text-sm focus:border-emerald-600 focus:outline-none"
+              />
+            </div>
+            <button
+              type="submit" disabled={creating || !newName.trim()}
+              className="rounded-lg bg-emerald-800 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-900 disabled:opacity-50"
+            >
+              {creating ? 'กำลังเพิ่ม...' : '+ เพิ่มกลุ่ม'}
+            </button>
+          </form>
+        )}
 
         {loading ? (
           <div className="py-16 text-center text-slate-400">กำลังโหลดข้อมูล...</div>
@@ -114,6 +119,7 @@ export default function CommunityEnterprises() {
                 entity={entity}
                 users={users}
                 plots={plots}
+                canDelete={isAdmin}
                 onSave={saveEntity}
                 onDelete={deleteEntity}
                 onAddMember={addMember}
