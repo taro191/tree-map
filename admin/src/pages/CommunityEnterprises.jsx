@@ -82,7 +82,7 @@ export default function CommunityEnterprises() {
     <div className="min-h-screen bg-stone-100">
       <header className="flex items-center justify-between border-b border-stone-200 bg-white px-6 py-3">
         <div>
-          <h1 className="text-lg font-bold text-emerald-900">🌳 รัฐวิสาหกิจชุมชน</h1>
+          <h1 className="text-lg font-bold text-emerald-900">🌳 วิสาหกิจชุมชน</h1>
           <p className="text-xs text-slate-500">จัดการกลุ่ม, สมาชิก, และแปลงที่ดินที่สังกัด</p>
         </div>
         <Link to="/" className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-semibold hover:border-emerald-700">← กลับหน้าแดชบอร์ด</Link>
@@ -94,7 +94,7 @@ export default function CommunityEnterprises() {
         {isAdmin && (
           <form onSubmit={createEntity} className="flex items-end gap-2 rounded-xl border border-stone-200 bg-white p-4">
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-semibold text-slate-500">ชื่อรัฐวิสาหกิจชุมชนใหม่</label>
+              <label className="mb-1 block text-xs font-semibold text-slate-500">ชื่อวิสาหกิจชุมชนใหม่</label>
               <input
                 value={newName} onChange={e => setNewName(e.target.value)}
                 className="w-full rounded-lg border border-stone-300 px-3 py-1.5 text-sm focus:border-emerald-600 focus:outline-none"
@@ -128,7 +128,7 @@ export default function CommunityEnterprises() {
                 onUnlinkPlot={unlinkPlot}
               />
             ))}
-            {entities.length === 0 && <div className="py-8 text-center text-slate-400">ยังไม่มีรัฐวิสาหกิจชุมชน</div>}
+            {entities.length === 0 && <div className="py-8 text-center text-slate-400">ยังไม่มีวิสาหกิจชุมชน</div>}
           </div>
         )}
       </main>

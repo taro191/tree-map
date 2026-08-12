@@ -42,7 +42,7 @@ export default function UsersPanel() {
   async function applyRole(u) {
     const draft = draftFor(u);
     if (draft.role === 'enterprise_admin' && !draft.managedCommunityEnterpriseId) {
-      setRoleError('กรุณาเลือกรัฐวิสาหกิจชุมชนที่จะดูแล');
+      setRoleError('กรุณาเลือกวิสาหกิจชุมชนที่จะดูแล');
       return;
     }
     setRoleBusyId(u.id);
