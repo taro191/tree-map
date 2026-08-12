@@ -1015,55 +1015,61 @@ function stampPlotPhoto(img, plot, pos){
   const timeStr = now.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit', hour12:false});
 
   const pad = Math.round(w*0.035);
-  const topH = Math.round(h*0.16);
-  const botH = Math.round(h*0.20);
-
-  let g = ctx.createLinearGradient(0,0,0,topH);
-  g.addColorStop(0,'rgba(0,0,0,0.55)'); g.addColorStop(1,'rgba(0,0,0,0)');
-  ctx.fillStyle = g; ctx.fillRect(0,0,w,topH);
-  g = ctx.createLinearGradient(0,h-botH,0,h);
-  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,0.6)');
-  ctx.fillStyle = g; ctx.fillRect(0,h-botH,w,botH);
-
-  ctx.textBaseline = 'top';
-  ctx.fillStyle = '#fff';
-  const titleSize = Math.max(14, Math.round(w*0.045));
-  const subSize = Math.max(11, Math.round(w*0.028));
+  const titleSize = Math.max(16, Math.round(w*0.05));
+  const subSize = Math.max(12, Math.round(w*0.03));
   const lineH = subSize + 8;
 
+  ctx.fillStyle = '#000';
+  ctx.shadowColor = 'rgba(255,255,255,0.85)';
+  ctx.shadowBlur = 5;
+
+  // top-left: owner name + doc title/area
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
   ctx.font = `bold ${titleSize}px sans-serif`;
-  ctx.fillText(plot.ownerName || plot.name || '-', pad, pad*0.6);
+  ctx.fillText(plot.ownerName || plot.name || '-', pad, pad);
 
   const subParts = [];
   if(plot.docTitle) subParts.push(plot.docTitle);
   const area = areaText(plot);
   if(area) subParts.push(area);
   if(subParts.length){
-    ctx.font = `${subSize}px sans-serif`;
-    ctx.fillText(subParts.join('  '), pad, pad*0.6 + titleSize + 6);
+    ctx.font = `bold ${subSize}px sans-serif`;
+    ctx.fillText(subParts.join('  '), pad, pad + titleSize + 8);
   }
 
-  ctx.font = `${subSize}px sans-serif`;
-  let ly = h - botH + pad*0.5;
+  // bottom-left: address + date/time (bottom-aligned)
+  ctx.textBaseline = 'bottom';
+  ctx.font = `bold ${subSize}px sans-serif`;
+  const leftLines = [];
   const addr = addressText(plot);
-  if(addr){ ctx.fillText(addr, pad, ly); ly += lineH; }
-  ctx.fillText(`${dateStr} ${timeStr}`, pad, ly);
+  if(addr) leftLines.push(addr);
+  leftLines.push(`${dateStr} ${timeStr}`);
+  let ly = h - pad;
+  for(let i = leftLines.length - 1; i >= 0; i--){
+    ctx.fillText(leftLines[i], pad, ly);
+    ly -= lineH;
+  }
 
+  // bottom-right: UTM coordinates (bottom-aligned)
   if(pos){
     const utm = latLonToUTM(pos.coords.latitude, pos.coords.longitude);
-    const lines = [
+    const rightLines = [
       `zone ${utm.zone} ${utm.letter}`,
       `x = ${Math.round(utm.easting)}`,
       `y = ${Math.round(utm.northing)}`,
       `acc. ${pos.coords.accuracy ? pos.coords.accuracy.toFixed(1) : '-'}m.`
     ];
-    ctx.font = `bold ${subSize}px sans-serif`;
     ctx.textAlign = 'right';
-    let ry = h - botH + pad*0.5;
-    lines.forEach(line=>{ ctx.fillText(line, w-pad, ry); ry += lineH; });
+    let ry = h - pad;
+    for(let i = rightLines.length - 1; i >= 0; i--){
+      ctx.fillText(rightLines[i], w - pad, ry);
+      ry -= lineH;
+    }
     ctx.textAlign = 'left';
   }
 
+  ctx.shadowBlur = 0;
   return canvas.toDataURL('image/jpeg', 0.85);
 }
 
