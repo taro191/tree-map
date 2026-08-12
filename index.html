@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.15</title>
+<title>ระบบแผนที่ต้นไม้ v1.16</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -275,15 +275,16 @@
       <div id="menu-dropdown">
         <button id="menu-item-home">🏠 กลับหน้าแรก</button>
         <button id="menu-item-toggle-sheet">⬍ ย่อ/ขยายแผงข้อมูล</button>
+        <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.15</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.16</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.15</span></p>
+      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.16</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -863,6 +864,20 @@ function prefillOwnerFromIdentity(){
   document.getElementById('in-owner-contact').value = identifiedUser.phone || '';
 }
 
+function updateAuthMenuLabel(){
+  const btn = document.getElementById('menu-item-auth');
+  if(identifiedUser){
+    btn.textContent = '🚪 ออกจากระบบ' + (identifiedUser.name ? ` (${identifiedUser.name})` : '');
+  } else {
+    btn.textContent = '👤 เข้าสู่ระบบ';
+  }
+}
+
+async function refreshAuthMenuState(){
+  identifiedUser = await checkFieldSession();
+  updateAuthMenuLabel();
+}
+
 function dobToPassword(dobStr){
   const [y,m,d] = dobStr.split('-');
   return d + m + y;
@@ -874,7 +889,10 @@ function showIdentifyError(msg){
   el.style.display = 'block';
 }
 
-function openIdentifyModal(){
+let identifyModalPurpose = 'add-plot';
+
+function openIdentifyModal(purpose){
+  identifyModalPurpose = purpose || 'add-plot';
   document.getElementById('in-identify-phone').value = '';
   document.getElementById('in-identify-dob').value = '';
   document.getElementById('in-identify-name').value = '';
@@ -889,9 +907,10 @@ async function openAddPlotFlow(){
   if(user){
     identifiedUser = user;
     prefillOwnerFromIdentity();
+    updateAuthMenuLabel();
     setView('plot-form');
   } else {
-    openIdentifyModal();
+    openIdentifyModal('add-plot');
   }
 }
 
@@ -1635,8 +1654,9 @@ document.getElementById('btn-identify-login').onclick = async ()=>{
     if(res.ok){
       identifiedUser = await res.json();
       prefillOwnerFromIdentity();
+      updateAuthMenuLabel();
       document.getElementById('identify-modal-overlay').classList.remove('show');
-      setView('plot-form');
+      if(identifyModalPurpose === 'add-plot') setView('plot-form');
     } else {
       showIdentifyError('ไม่พบข้อมูล หรือวันเกิดไม่ตรง ถ้ายังไม่เคยลงทะเบียนกดปุ่มด้านล่าง');
     }
@@ -1662,8 +1682,9 @@ document.getElementById('btn-identify-register').onclick = async ()=>{
     if(res.ok){
       identifiedUser = await res.json();
       prefillOwnerFromIdentity();
+      updateAuthMenuLabel();
       document.getElementById('identify-modal-overlay').classList.remove('show');
-      setView('plot-form');
+      if(identifyModalPurpose === 'add-plot') setView('plot-form');
     } else {
       const data = await res.json().catch(()=>({}));
       showIdentifyError(data.error || 'ลงทะเบียนไม่สำเร็จ');
@@ -1888,6 +1909,7 @@ document.getElementById('btn-save-tree').onclick = async ()=>{
 document.getElementById('menu-btn').onclick = (e)=>{
   e.stopPropagation();
   document.getElementById('menu-dropdown').classList.toggle('show');
+  refreshAuthMenuState();
 };
 document.getElementById('menu-item-home').onclick = ()=>{
   setView('home');
@@ -1896,6 +1918,17 @@ document.getElementById('menu-item-home').onclick = ()=>{
 document.getElementById('menu-item-toggle-sheet').onclick = ()=>{
   toggleSheet();
   document.getElementById('menu-dropdown').classList.remove('show');
+};
+document.getElementById('menu-item-auth').onclick = async ()=>{
+  document.getElementById('menu-dropdown').classList.remove('show');
+  if(identifiedUser){
+    if(!confirm('ออกจากระบบ?')) return;
+    try{ await fetch('/api/auth/logout', {method:'POST', credentials:'include'}); }catch(e){}
+    identifiedUser = null;
+    updateAuthMenuLabel();
+  } else {
+    openIdentifyModal('menu');
+  }
 };
 document.addEventListener('click', (e)=>{
   const dropdown = document.getElementById('menu-dropdown');
@@ -1934,6 +1967,7 @@ window.addEventListener('unhandledrejection', (e)=>{
     document.getElementById('crosshair-banner').classList.remove('show');
     await loadData();
     renderAll();
+    refreshAuthMenuState();
   }catch(err){
     console.error('เริ่มระบบล้มเหลว:', err);
     showMapError('เกิดข้อผิดพลาดตอนเริ่มระบบ: ' + err.message);
