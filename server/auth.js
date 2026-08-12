@@ -19,7 +19,7 @@ async function comparePassword(password, hash) {
 }
 
 function signToken(user) {
-  return jwt.sign({ sub: user.id, email: user.email }, getSecret(), { expiresIn: TOKEN_TTL });
+  return jwt.sign({ sub: user.id, email: user.email, phone: user.phone }, getSecret(), { expiresIn: TOKEN_TTL });
 }
 
 function verifyToken(token) {

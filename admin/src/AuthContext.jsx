@@ -10,13 +10,13 @@ export function AuthProvider({ children }) {
     api.me().then(setUser).catch(() => setUser(null));
   }, []);
 
-  async function login(email, password) {
-    const u = await api.login(email, password);
+  async function login(identifier, password) {
+    const u = await api.login(identifier, password);
     setUser(u);
   }
 
-  async function register(email, password) {
-    const u = await api.register(email, password);
+  async function register(email, phone, password) {
+    const u = await api.register(email, phone, password);
     setUser(u);
   }
 

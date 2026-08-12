@@ -4,6 +4,7 @@ import { api } from '../api';
 export default function UsersPanel() {
   const [users, setUsers] = useState([]);
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -21,10 +22,12 @@ export default function UsersPanel() {
   async function onSubmit(e) {
     e.preventDefault();
     setError('');
+    if (!email.trim() && !phone.trim()) { setError('กรอกอีเมลหรือเบอร์โทรศัพท์อย่างน้อย 1 อย่าง'); return; }
     setBusy(true);
     try {
-      await api.addUser(email, password);
+      await api.addUser(email.trim() || null, phone.trim() || null, password);
       setEmail('');
+      setPhone('');
       setPassword('');
       await reload();
     } catch (err) {
@@ -42,7 +45,15 @@ export default function UsersPanel() {
         <div>
           <label className="mb-1 block text-xs font-semibold text-slate-500">อีเมลผู้ใช้ใหม่</label>
           <input
-            type="email" required value={email} onChange={e => setEmail(e.target.value)}
+            type="email" value={email} onChange={e => setEmail(e.target.value)}
+            className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm focus:border-emerald-600 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-slate-500">เบอร์โทรศัพท์</label>
+          <input
+            type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+            placeholder="0812345678"
             className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm focus:border-emerald-600 focus:outline-none"
           />
         </div>
@@ -63,7 +74,7 @@ export default function UsersPanel() {
       <ul className="divide-y divide-stone-100 text-sm">
         {users.map(u => (
           <li key={u.id} className="flex items-center justify-between py-1.5">
-            <span>{u.email}</span>
+            <span>{[u.email, u.phone].filter(Boolean).join(' · ')}</span>
             <span className="text-xs text-slate-400">{u.createdAt ? new Date(u.createdAt).toLocaleDateString('th-TH') : ''}</span>
           </li>
         ))}

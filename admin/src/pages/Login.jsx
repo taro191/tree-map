@@ -5,7 +5,7 @@ import { useAuth } from '../AuthContext';
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -15,7 +15,7 @@ export default function Login() {
     setError('');
     setBusy(true);
     try {
-      await login(email, password);
+      await login(identifier, password);
       navigate('/', { replace: true });
     } catch (err) {
       setError(err.message);
@@ -30,9 +30,10 @@ export default function Login() {
         <h1 className="mb-1 text-xl font-bold text-emerald-900">เข้าสู่ระบบ admin</h1>
         <p className="mb-6 text-sm text-slate-500">ระบบแผนที่ต้นไม้</p>
         {error && <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
-        <label className="mb-1 block text-xs font-semibold text-slate-500">อีเมล</label>
+        <label className="mb-1 block text-xs font-semibold text-slate-500">อีเมล หรือ เบอร์โทรศัพท์</label>
         <input
-          type="email" required value={email} onChange={e => setEmail(e.target.value)}
+          type="text" required value={identifier} onChange={e => setIdentifier(e.target.value)}
+          placeholder="เช่น 0812345678 หรือ name@email.com"
           className="mb-4 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-emerald-600 focus:outline-none"
         />
         <label className="mb-1 block text-xs font-semibold text-slate-500">รหัสผ่าน</label>

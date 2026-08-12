@@ -18,8 +18,8 @@ async function request(path, options = {}) {
 
 export const api = {
   me: () => request('/api/auth/me'),
-  register: (email, password) => request('/api/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) }),
-  login: (email, password) => request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  register: (email, phone, password) => request('/api/auth/register', { method: 'POST', body: JSON.stringify({ email, phone, password }) }),
+  login: (identifier, password) => request('/api/auth/login', { method: 'POST', body: JSON.stringify({ identifier, password }) }),
   logout: () => request('/api/auth/logout', { method: 'POST' }),
 
   listPlots: () => request('/api/plots'),
@@ -31,5 +31,5 @@ export const api = {
   deleteTree: (id) => request(`/api/trees/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
   listUsers: () => request('/api/admin/users'),
-  addUser: (email, password) => request('/api/admin/users', { method: 'POST', body: JSON.stringify({ email, password }) })
+  addUser: (email, phone, password) => request('/api/admin/users', { method: 'POST', body: JSON.stringify({ email, phone, password }) })
 };

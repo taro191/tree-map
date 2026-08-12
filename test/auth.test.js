@@ -87,13 +87,13 @@ test('login with wrong password fails, correct password succeeds', async () => {
 
   let res = await fetch(`${base}/api/auth/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'user@example.com', password: 'wrong-password' })
+    body: JSON.stringify({ identifier: 'user@example.com', password: 'wrong-password' })
   });
   assert.equal(res.status, 401);
 
   res = await fetch(`${base}/api/auth/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'user@example.com', password: 'correct-password' })
+    body: JSON.stringify({ identifier: 'user@example.com', password: 'correct-password' })
   });
   assert.equal(res.status, 200);
   assert.ok(getCookie(res));
@@ -186,7 +186,51 @@ test('admin can add and list other users without losing their own session', asyn
   // the newly-created user can log in with the password the admin set
   res = await fetch(`${base}/api/auth/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'newstaff@example.com', password: 'longenough123' })
+    body: JSON.stringify({ identifier: 'newstaff@example.com', password: 'longenough123' })
+  });
+  assert.equal(res.status, 200);
+
+  server.close();
+});
+
+test('registration accepts phone-only accounts, and login works with either identifier', async () => {
+  const { server, base } = await startServer();
+
+  // neither email nor phone -> rejected
+  let res = await fetch(`${base}/api/auth/register`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: 'longenough123' })
+  });
+  assert.equal(res.status, 400);
+
+  // invalid phone format -> rejected
+  res = await fetch(`${base}/api/auth/register`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone: '12345', password: 'longenough123' })
+  });
+  assert.equal(res.status, 400);
+
+  // phone-only registration succeeds
+  res = await fetch(`${base}/api/auth/register`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone: '081-234-5678', password: 'longenough123' })
+  });
+  assert.equal(res.status, 201);
+  const registered = await res.json();
+  assert.equal(registered.phone, '0812345678'); // dashes stripped
+  assert.equal(registered.email, null);
+
+  // duplicate phone rejected
+  res = await fetch(`${base}/api/auth/register`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone: '0812345678', password: 'anotherpassword' })
+  });
+  assert.equal(res.status, 409);
+
+  // login with phone as the identifier
+  res = await fetch(`${base}/api/auth/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier: '0812345678', password: 'longenough123' })
   });
   assert.equal(res.status, 200);
 

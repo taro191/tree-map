@@ -97,19 +97,24 @@ function createPgStore(connectionString) {
   }
 
   function userRowToObj(row) {
-    return { id: row.id, email: row.email, passwordHash: row.password_hash, createdAt: row.created_at };
+    return { id: row.id, email: row.email, phone: row.phone, passwordHash: row.password_hash, createdAt: row.created_at };
   }
 
-  async function createUser(id, email, passwordHash) {
+  async function createUser(id, email, phone, passwordHash) {
     const { rows } = await pool.query(
-      'INSERT INTO users (id, email, password_hash) VALUES ($1,$2,$3) RETURNING *',
-      [id, email, passwordHash]
+      'INSERT INTO users (id, email, phone, password_hash) VALUES ($1,$2,$3,$4) RETURNING *',
+      [id, email || null, phone || null, passwordHash]
     );
     return userRowToObj(rows[0]);
   }
 
   async function findUserByEmail(email) {
     const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    return rows[0] ? userRowToObj(rows[0]) : null;
+  }
+
+  async function findUserByPhone(phone) {
+    const { rows } = await pool.query('SELECT * FROM users WHERE phone = $1', [phone]);
     return rows[0] ? userRowToObj(rows[0]) : null;
   }
 
@@ -125,7 +130,7 @@ function createPgStore(connectionString) {
 
   return {
     pool, initSchema, listPlots, upsertPlot, deletePlot, listTrees, upsertTree, deleteTree,
-    createUser, findUserByEmail, findUserById, listUsers
+    createUser, findUserByEmail, findUserByPhone, findUserById, listUsers
   };
 }
 
