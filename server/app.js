@@ -103,7 +103,7 @@ function createApp(store) {
       }
       setSessionCookie(res, user);
       res.json({
-        id: user.id, email: user.email, phone: user.phone,
+        id: user.id, email: user.email, phone: user.phone, name: user.name,
         role: user.role, managedCommunityEnterpriseId: user.managedCommunityEnterpriseId
       });
     } catch (err) { next(err); }
@@ -116,7 +116,7 @@ function createApp(store) {
 
   app.get('/api/auth/me', requireAuth, (req, res) => {
     res.json({
-      id: req.user.sub, email: req.user.email, phone: req.user.phone,
+      id: req.user.sub, email: req.user.email, phone: req.user.phone, name: req.user.name,
       role: req.user.role, managedCommunityEnterpriseId: req.user.managedCommunityEnterpriseId
     });
   });

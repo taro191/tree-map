@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.14</title>
+<title>ระบบแผนที่ต้นไม้ v1.15</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -96,6 +96,7 @@
     font-family:inherit;font-size:16px;background:#FCFBF8;
   }
   .field input:focus, .field select:focus, .field textarea:focus{outline:none;border-color:var(--primary);}
+  .field input[readonly]{background:#EFEDE5;color:var(--muted);}
   .field textarea{resize:vertical;min-height:56px;}
 
   .btn{
@@ -276,13 +277,13 @@
         <button id="menu-item-toggle-sheet">⬍ ย่อ/ขยายแผงข้อมูล</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.14</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.15</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.14</span></p>
+      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.15</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -298,12 +299,12 @@
             <input id="in-plot-name" placeholder="เช่น แปลง A1">
           </div>
           <div class="field">
-            <label>ชื่อเจ้าของแปลง</label>
-            <input id="in-owner-name" placeholder="ชื่อ-นามสกุล">
+            <label>ชื่อเจ้าของแปลง (ตามผู้ใช้ที่ระบุตัวตน แก้ไขไม่ได้)</label>
+            <input id="in-owner-name" placeholder="ชื่อ-นามสกุล" readonly>
           </div>
           <div class="field">
-            <label>เบอร์ติดต่อ (ถ้ามี)</label>
-            <input id="in-owner-contact" placeholder="08x-xxx-xxxx">
+            <label>เบอร์ติดต่อ (ตามผู้ใช้ที่ระบุตัวตน แก้ไขไม่ได้)</label>
+            <input id="in-owner-contact" placeholder="08x-xxx-xxxx" readonly>
           </div>
           <div class="field">
             <label>ประเภท/เลขที่เอกสารสิทธิ์ (ถ้ามี)</label>
@@ -846,11 +847,20 @@ function applyPickedPosition(latlng){
   setSheetExpanded(true);
 }
 
+let identifiedUser = null;
+
 async function checkFieldSession(){
   try{
     const res = await fetch('/api/auth/me', {credentials:'include'});
-    return res.ok;
-  }catch(e){ return false; }
+    if(!res.ok) return null;
+    return await res.json();
+  }catch(e){ return null; }
+}
+
+function prefillOwnerFromIdentity(){
+  if(!identifiedUser) return;
+  document.getElementById('in-owner-name').value = identifiedUser.name || '';
+  document.getElementById('in-owner-contact').value = identifiedUser.phone || '';
 }
 
 function dobToPassword(dobStr){
@@ -875,8 +885,14 @@ function openIdentifyModal(){
 }
 
 async function openAddPlotFlow(){
-  const hasSession = await checkFieldSession();
-  if(hasSession){ setView('plot-form'); } else { openIdentifyModal(); }
+  const user = await checkFieldSession();
+  if(user){
+    identifiedUser = user;
+    prefillOwnerFromIdentity();
+    setView('plot-form');
+  } else {
+    openIdentifyModal();
+  }
 }
 
 function openRefPointModal(){
@@ -1617,6 +1633,8 @@ document.getElementById('btn-identify-login').onclick = async ()=>{
       body: JSON.stringify({identifier: phone, password})
     });
     if(res.ok){
+      identifiedUser = await res.json();
+      prefillOwnerFromIdentity();
       document.getElementById('identify-modal-overlay').classList.remove('show');
       setView('plot-form');
     } else {
@@ -1642,6 +1660,8 @@ document.getElementById('btn-identify-register').onclick = async ()=>{
       body: JSON.stringify({phone, password, name, nationalId, dob, fieldRegistration: true})
     });
     if(res.ok){
+      identifiedUser = await res.json();
+      prefillOwnerFromIdentity();
       document.getElementById('identify-modal-overlay').classList.remove('show');
       setView('plot-form');
     } else {
@@ -1744,8 +1764,7 @@ document.getElementById('btn-save-boundary').onclick = async ()=>{
   plots.push(plot);
   selectedPlotId = plot.id;
   document.getElementById('in-plot-name').value='';
-  document.getElementById('in-owner-name').value='';
-  document.getElementById('in-owner-contact').value='';
+  prefillOwnerFromIdentity();
   document.getElementById('in-plot-doc').value='';
   document.getElementById('in-plot-rai').value='';
   document.getElementById('in-plot-ngan').value='';
