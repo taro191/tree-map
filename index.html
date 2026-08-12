@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.19</title>
+<title>ระบบแผนที่ต้นไม้ v1.20</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -284,13 +284,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.19</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.20</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.19</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.20</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -915,6 +915,7 @@ async function openAddPlotFlow(){
     identifiedUser = user;
     prefillOwnerFromIdentity();
     updateAuthMenuLabel();
+    renderBoundaries();
     setView('plot-form');
   } else {
     openIdentifyModal('add-plot');
@@ -1048,14 +1049,33 @@ function renderColorRow(){
   });
 }
 
+function isPlotVisibleToUser(plot){
+  if(!identifiedUser) return false;
+  return !plot.createdBy || plot.createdBy === identifiedUser.id;
+}
+
+function visiblePlots(){
+  return plots.filter(isPlotVisibleToUser);
+}
+
 function renderPlotList(){
   const el = document.getElementById('plot-list');
-  if(plots.length===0){
-    el.innerHTML = '<div class="empty-hint">ยังไม่มีแปลง<br>กดปุ่ม + เพิ่มแปลงใหม่ ด้านบนเพื่อเริ่มต้น</div>';
+  if(!identifiedUser){
+    el.innerHTML = `
+      <div class="empty-hint">
+        เข้าสู่ระบบเพื่อดูแปลงของคุณ
+        <br><button class="btn small" id="btn-home-identify" style="margin-top:10px;">เข้าสู่ระบบ / ลงทะเบียน</button>
+      </div>`;
+    document.getElementById('btn-home-identify').onclick = ()=> openIdentifyModal('home');
+    return;
+  }
+  const list = visiblePlots();
+  if(list.length===0){
+    el.innerHTML = '<div class="empty-hint">ยังไม่มีแปลงของคุณ<br>กดปุ่ม + เพิ่มแปลงใหม่ ด้านบนเพื่อเริ่มต้น</div>';
     return;
   }
   el.innerHTML = '';
-  plots.forEach(p=>{
+  list.forEach(p=>{
     const count = trees.filter(t=>t.plotId===p.id).length;
     const hasBoundary = p.boundary && p.boundary.length>=3;
     const card = document.createElement('div');
@@ -1342,7 +1362,8 @@ function renderMarkers(){
   if(currentView !== 'home'){
     trees.forEach(t=>{
       const plot = plots.find(p=>p.id===t.plotId);
-      const color = plot ? plot.color : '#3D6B4A';
+      if(!plot || !isPlotVisibleToUser(plot)) return;
+      const color = plot.color;
       const icon = L.divIcon({
         className:'',
         html:`<div class="tree-pin" style="background:${color}"><span>${t.seq}</span></div>`,
@@ -1363,7 +1384,7 @@ function renderMarkers(){
   }
 
   plots.forEach(p=>{
-    if(!p.refPoint) return;
+    if(!p.refPoint || !isPlotVisibleToUser(p)) return;
     const icon = L.divIcon({
       className:'',
       html:`<div class="ref-pin" style="background:${p.color}">🚩</div>`,
@@ -1385,7 +1406,7 @@ function renderMarkers(){
 function renderBoundaries(){
   boundaryLayer.clearLayers();
   plots.forEach(p=>{
-    if(!p.boundary || p.boundary.length<3) return;
+    if(!p.boundary || p.boundary.length<3 || !isPlotVisibleToUser(p)) return;
     const latlngs = p.boundary.map(pt=>[pt.lat,pt.lng]);
     L.polygon(latlngs, {
       color:p.color, weight: p.id===selectedPlotId?3:2,
@@ -1780,6 +1801,7 @@ document.getElementById('btn-identify-login').onclick = async ()=>{
       identifiedUser = await res.json();
       prefillOwnerFromIdentity();
       updateAuthMenuLabel();
+      renderAll();
       document.getElementById('identify-modal-overlay').classList.remove('show');
       if(identifyModalPurpose === 'add-plot'){
         setView('plot-form');
@@ -1813,6 +1835,7 @@ document.getElementById('btn-identify-register').onclick = async ()=>{
       identifiedUser = await res.json();
       prefillOwnerFromIdentity();
       updateAuthMenuLabel();
+      renderAll();
       document.getElementById('identify-modal-overlay').classList.remove('show');
       if(identifyModalPurpose === 'add-plot'){
         setView('plot-form');
@@ -2065,6 +2088,7 @@ document.getElementById('menu-item-auth').onclick = async ()=>{
     try{ await fetch('/api/auth/logout', {method:'POST', credentials:'include'}); }catch(e){}
     identifiedUser = null;
     updateAuthMenuLabel();
+    renderAll();
   } else {
     openIdentifyModal('menu');
   }
@@ -2105,8 +2129,8 @@ window.addEventListener('unhandledrejection', (e)=>{
     renderColorRow();
     document.getElementById('crosshair-banner').classList.remove('show');
     await loadData();
+    await refreshAuthMenuState();
     renderAll();
-    refreshAuthMenuState();
   }catch(err){
     console.error('เริ่มระบบล้มเหลว:', err);
     showMapError('เกิดข้อผิดพลาดตอนเริ่มระบบ: ' + err.message);
