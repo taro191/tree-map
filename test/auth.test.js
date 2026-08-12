@@ -236,3 +236,51 @@ test('registration accepts phone-only accounts, and login works with either iden
 
   server.close();
 });
+
+test('field-worker registration: name/nationalId/dob round-trip, duplicate national ID rejected, invalid format rejected', async () => {
+  const { server, base } = await startServer();
+
+  // invalid national ID format -> rejected
+  let res = await fetch(`${base}/api/auth/register`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone: '0891112222', password: '14031995', name: 'สมชาย ใจดี', nationalId: '123' })
+  });
+  assert.equal(res.status, 400);
+
+  // valid registration with dob-as-password
+  res = await fetch(`${base}/api/auth/register`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      phone: '0891112222', password: '14031995',
+      name: 'สมชาย ใจดี', nationalId: '1234567890123', dob: '1995-03-14'
+    })
+  });
+  assert.equal(res.status, 201);
+  const registered = await res.json();
+  assert.equal(registered.name, 'สมชาย ใจดี');
+  const cookie = getCookie(res);
+  assert.ok(cookie);
+
+  // duplicate national ID (different phone) -> rejected
+  res = await fetch(`${base}/api/auth/register`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      phone: '0899998888', password: '01011990',
+      name: 'อีกคนหนึ่ง', nationalId: '1234567890123', dob: '1990-01-01'
+    })
+  });
+  assert.equal(res.status, 409);
+
+  // login using phone + dob-derived password succeeds
+  res = await fetch(`${base}/api/auth/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier: '0891112222', password: '14031995' })
+  });
+  assert.equal(res.status, 200);
+
+  // session from registration is valid via /api/auth/me
+  res = await fetch(`${base}/api/auth/me`, { headers: { Cookie: cookie } });
+  assert.equal(res.status, 200);
+
+  server.close();
+});

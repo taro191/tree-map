@@ -8,6 +8,7 @@ const { plotsToCSV, treesToCSV, toGeoJSON } = require('./export');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^0\d{9}$/;
+const NATIONAL_ID_RE = /^\d{13}$/;
 
 function normalizePhone(phone) {
   return (phone || '').replace(/[\s-]/g, '');
@@ -26,17 +27,24 @@ function createApp(store) {
   app.use(express.json({ limit: '5mb' }));
   app.use(cookieParser());
 
-  async function createAccount(email, phone, password) {
+  async function createAccount(email, phone, password, extra) {
+    extra = extra || {};
     const validationError = validateRegistration(email, phone, password);
     if (validationError) return { status: 400, error: validationError };
+    if (extra.nationalId && !NATIONAL_ID_RE.test(extra.nationalId)) {
+      return { status: 400, error: 'invalid national ID (must be 13 digits)' };
+    }
     if (email && await store.findUserByEmail(email)) {
       return { status: 409, error: 'an account with this email already exists' };
     }
     if (phone && await store.findUserByPhone(phone)) {
       return { status: 409, error: 'an account with this phone number already exists' };
     }
+    if (extra.nationalId && await store.findUserByNationalId(extra.nationalId)) {
+      return { status: 409, error: 'an account with this national ID already exists' };
+    }
     const passwordHash = await hashPassword(password);
-    const user = await store.createUser(crypto.randomUUID(), email || null, phone || null, passwordHash);
+    const user = await store.createUser(crypto.randomUUID(), email || null, phone || null, passwordHash, extra);
     return { user };
   }
 
@@ -61,10 +69,15 @@ function createApp(store) {
       const email = (req.body && req.body.email || '').trim().toLowerCase() || null;
       const phone = normalizePhone(req.body && req.body.phone) || null;
       const password = (req.body && req.body.password) || '';
-      const result = await createAccount(email, phone, password);
+      const name = (req.body && req.body.name || '').trim() || null;
+      const nationalId = (req.body && req.body.nationalId || '').trim() || null;
+      const dob = (req.body && req.body.dob || '').trim() || null;
+      const result = await createAccount(email, phone, password, { name, nationalId, dob });
       if (result.error) return res.status(result.status).json({ error: result.error });
       setSessionCookie(res, result.user);
-      res.status(201).json({ id: result.user.id, email: result.user.email, phone: result.user.phone });
+      res.status(201).json({
+        id: result.user.id, email: result.user.email, phone: result.user.phone, name: result.user.name
+      });
     } catch (err) { next(err); }
   });
 

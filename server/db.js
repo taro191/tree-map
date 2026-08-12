@@ -113,13 +113,18 @@ function createPgStore(connectionString) {
   }
 
   function userRowToObj(row) {
-    return { id: row.id, email: row.email, phone: row.phone, passwordHash: row.password_hash, createdAt: row.created_at };
+    return {
+      id: row.id, email: row.email, phone: row.phone, passwordHash: row.password_hash,
+      name: row.name, nationalId: row.national_id, dob: row.dob,
+      createdAt: row.created_at
+    };
   }
 
-  async function createUser(id, email, phone, passwordHash) {
+  async function createUser(id, email, phone, passwordHash, extra) {
+    extra = extra || {};
     const { rows } = await pool.query(
-      'INSERT INTO users (id, email, phone, password_hash) VALUES ($1,$2,$3,$4) RETURNING *',
-      [id, email || null, phone || null, passwordHash]
+      'INSERT INTO users (id, email, phone, password_hash, name, national_id, dob) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+      [id, email || null, phone || null, passwordHash, extra.name || null, extra.nationalId || null, extra.dob || null]
     );
     return userRowToObj(rows[0]);
   }
@@ -131,6 +136,11 @@ function createPgStore(connectionString) {
 
   async function findUserByPhone(phone) {
     const { rows } = await pool.query('SELECT * FROM users WHERE phone = $1', [phone]);
+    return rows[0] ? userRowToObj(rows[0]) : null;
+  }
+
+  async function findUserByNationalId(nationalId) {
+    const { rows } = await pool.query('SELECT * FROM users WHERE national_id = $1', [nationalId]);
     return rows[0] ? userRowToObj(rows[0]) : null;
   }
 
@@ -222,7 +232,7 @@ function createPgStore(connectionString) {
 
   return {
     pool, initSchema, listPlots, upsertPlot, deletePlot, listTrees, upsertTree, deleteTree,
-    createUser, findUserByEmail, findUserByPhone, findUserById, listUsers,
+    createUser, findUserByEmail, findUserByPhone, findUserByNationalId, findUserById, listUsers,
     listCommunityEnterprises, upsertCommunityEnterprise, deleteCommunityEnterprise,
     countCommunityEnterpriseMembers, listCommunityEnterpriseMembers,
     addCommunityEnterpriseMember, removeCommunityEnterpriseMember

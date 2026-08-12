@@ -31,8 +31,13 @@ function createMemoryStore() {
     async deleteTree(id) {
       trees.delete(id);
     },
-    async createUser(id, email, phone, passwordHash) {
-      const user = { id, email: email || null, phone: phone || null, passwordHash, createdAt: new Date().toISOString() };
+    async createUser(id, email, phone, passwordHash, extra) {
+      extra = extra || {};
+      const user = {
+        id, email: email || null, phone: phone || null, passwordHash,
+        name: extra.name || null, nationalId: extra.nationalId || null, dob: extra.dob || null,
+        createdAt: new Date().toISOString()
+      };
       users.set(id, user);
       return user;
     },
@@ -41,6 +46,9 @@ function createMemoryStore() {
     },
     async findUserByPhone(phone) {
       return [...users.values()].find(u => u.phone === phone) || null;
+    },
+    async findUserByNationalId(nationalId) {
+      return [...users.values()].find(u => u.nationalId === nationalId) || null;
     },
     async findUserById(id) {
       return users.get(id) || null;

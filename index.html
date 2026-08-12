@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.13</title>
+<title>ระบบแผนที่ต้นไม้ v1.14</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -276,13 +276,13 @@
         <button id="menu-item-toggle-sheet">⬍ ย่อ/ขยายแผงข้อมูล</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.13</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.14</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.13</span></p>
+      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.14</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -463,6 +463,39 @@
       <button class="btn secondary" id="btn-cancel-refpoint">ยกเลิก</button>
       <button class="btn" id="btn-save-refpoint">บันทึกจุดอ้างอิง</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="identify-modal-overlay">
+  <div class="modal">
+    <h3>ระบุตัวตนก่อนเพิ่มแปลง</h3>
+    <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.5;">
+      กรอกเบอร์โทรศัพท์และวันเดือนปีเกิดของคุณ ระบบจะจดจำเครื่องนี้ไว้ ไม่ต้องกรอกซ้ำในครั้งถัดไป
+    </p>
+    <div class="field">
+      <label>เบอร์โทรศัพท์</label>
+      <input id="in-identify-phone" type="tel" placeholder="0812345678">
+    </div>
+    <div class="field">
+      <label>วันเดือนปีเกิด</label>
+      <input id="in-identify-dob" type="date">
+    </div>
+    <div id="identify-error" style="color:#b33;font-size:12.5px;margin-bottom:10px;display:none;"></div>
+    <button class="btn" id="btn-identify-login" style="margin-bottom:10px;">เข้าสู่ระบบ</button>
+
+    <div id="identify-register-fields" style="display:none;">
+      <div class="field">
+        <label>ชื่อ-นามสกุล (ภาษาไทย)</label>
+        <input id="in-identify-name" placeholder="ชื่อ นามสกุล">
+      </div>
+      <div class="field">
+        <label>เลขประจำตัวประชาชน (13 หลัก)</label>
+        <input id="in-identify-nationalid" inputmode="numeric" maxlength="13" placeholder="1234567890123">
+      </div>
+      <button class="btn" id="btn-identify-register" style="margin-bottom:10px;">ลงทะเบียน</button>
+    </div>
+    <button type="button" class="btn secondary small" id="btn-identify-show-register" style="width:100%;margin-bottom:10px;">ยังไม่เคยลงทะเบียน? กดที่นี่</button>
+    <button class="btn secondary" id="btn-identify-cancel">ยกเลิก</button>
   </div>
 </div>
 
@@ -811,6 +844,39 @@ function applyPickedPosition(latlng){
     document.getElementById('refpoint-modal-overlay').classList.add('show');
   }
   setSheetExpanded(true);
+}
+
+async function checkFieldSession(){
+  try{
+    const res = await fetch('/api/auth/me', {credentials:'include'});
+    return res.ok;
+  }catch(e){ return false; }
+}
+
+function dobToPassword(dobStr){
+  const [y,m,d] = dobStr.split('-');
+  return d + m + y;
+}
+
+function showIdentifyError(msg){
+  const el = document.getElementById('identify-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function openIdentifyModal(){
+  document.getElementById('in-identify-phone').value = '';
+  document.getElementById('in-identify-dob').value = '';
+  document.getElementById('in-identify-name').value = '';
+  document.getElementById('in-identify-nationalid').value = '';
+  document.getElementById('identify-register-fields').style.display = 'none';
+  document.getElementById('identify-error').style.display = 'none';
+  document.getElementById('identify-modal-overlay').classList.add('show');
+}
+
+async function openAddPlotFlow(){
+  const hasSession = await checkFieldSession();
+  if(hasSession){ setView('plot-form'); } else { openIdentifyModal(); }
 }
 
 function openRefPointModal(){
@@ -1529,7 +1595,63 @@ async function capturePlotPhoto(file){
 }
 
 // Events
-document.getElementById('btn-open-add-plot').onclick = ()=> setView('plot-form');
+document.getElementById('btn-open-add-plot').onclick = ()=> openAddPlotFlow();
+
+document.getElementById('btn-identify-cancel').onclick = ()=>{
+  document.getElementById('identify-modal-overlay').classList.remove('show');
+};
+
+document.getElementById('btn-identify-show-register').onclick = ()=>{
+  document.getElementById('identify-register-fields').style.display = 'block';
+};
+
+document.getElementById('btn-identify-login').onclick = async ()=>{
+  const phone = document.getElementById('in-identify-phone').value.trim();
+  const dob = document.getElementById('in-identify-dob').value;
+  document.getElementById('identify-error').style.display = 'none';
+  if(!phone || !dob){ showIdentifyError('กรุณากรอกเบอร์โทรศัพท์และวันเกิด'); return; }
+  const password = dobToPassword(dob);
+  try{
+    const res = await fetch('/api/auth/login', {
+      method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
+      body: JSON.stringify({identifier: phone, password})
+    });
+    if(res.ok){
+      document.getElementById('identify-modal-overlay').classList.remove('show');
+      setView('plot-form');
+    } else {
+      showIdentifyError('ไม่พบข้อมูล หรือวันเกิดไม่ตรง ถ้ายังไม่เคยลงทะเบียนกดปุ่มด้านล่าง');
+    }
+  }catch(e){
+    showIdentifyError('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต');
+  }
+};
+
+document.getElementById('btn-identify-register').onclick = async ()=>{
+  const phone = document.getElementById('in-identify-phone').value.trim();
+  const dob = document.getElementById('in-identify-dob').value;
+  const name = document.getElementById('in-identify-name').value.trim();
+  const nationalId = document.getElementById('in-identify-nationalid').value.trim();
+  document.getElementById('identify-error').style.display = 'none';
+  if(!phone || !dob || !name || !nationalId){ showIdentifyError('กรุณากรอกข้อมูลให้ครบทุกช่อง'); return; }
+  if(!/^\d{13}$/.test(nationalId)){ showIdentifyError('เลขประจำตัวประชาชนต้องเป็นตัวเลข 13 หลัก'); return; }
+  const password = dobToPassword(dob);
+  try{
+    const res = await fetch('/api/auth/register', {
+      method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
+      body: JSON.stringify({phone, password, name, nationalId, dob})
+    });
+    if(res.ok){
+      document.getElementById('identify-modal-overlay').classList.remove('show');
+      setView('plot-form');
+    } else {
+      const data = await res.json().catch(()=>({}));
+      showIdentifyError(data.error || 'ลงทะเบียนไม่สำเร็จ');
+    }
+  }catch(e){
+    showIdentifyError('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต');
+  }
+};
 
 document.getElementById('btn-back-home-from-form').onclick = ()=>{
   if(boundaryMode){
