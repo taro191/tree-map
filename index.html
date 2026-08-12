@@ -367,6 +367,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" onerror="window.__leafletFailed=true;"></script>
 <script>
 const COLORS = ['#3D6B4A','#A6612E','#4A6FA5','#8A4F9E','#B5533C','#5A8A6B','#C08A2E','#3F7C7C'];
+const SATELLITE_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const SATELLITE_ATTRIBUTION = 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community';
 let plots = [];
 let trees = [];
 let selectedPlotId = null;
@@ -471,20 +473,27 @@ async function apiDeleteTree(id){
 
 function initMap(){
   map = L.map('map', {zoomControl:true}).setView([13.7563, 100.5018], 6);
-  const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
+
+  const satelliteTiles = L.tileLayer(SATELLITE_TILE_URL, {
+    attribution: SATELLITE_ATTRIBUTION, maxZoom: 19
   }).addTo(map);
+  const streetTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
+  });
+  L.control.layers({ '🛰️ ภาพถ่ายดาวเทียม': satelliteTiles, '🗺️ แผนที่ถนน': streetTiles }, null, { position:'bottomright' }).addTo(map);
 
   let tileErrorCount = 0, tileOkCount = 0;
-  tiles.on('tileerror', ()=>{
-    tileErrorCount++;
-    if(tileErrorCount >= 4 && tileOkCount === 0){
-      showMapError('โหลดภาพแผนที่ (map tiles) ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
-    }
-  });
-  tiles.on('tileload', ()=>{
-    tileOkCount++;
-    document.getElementById('map-fallback-notice').classList.remove('show');
+  [satelliteTiles, streetTiles].forEach(layer=>{
+    layer.on('tileerror', ()=>{
+      tileErrorCount++;
+      if(tileErrorCount >= 4 && tileOkCount === 0){
+        showMapError('โหลดภาพแผนที่ (map tiles) ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+      }
+    });
+    layer.on('tileload', ()=>{
+      tileOkCount++;
+      document.getElementById('map-fallback-notice').classList.remove('show');
+    });
   });
 
   markerLayer = L.layerGroup().addTo(map);
@@ -895,8 +904,8 @@ function renderPlotDetailMap(){
     zoomControl:false, dragging:false, scrollWheelZoom:false,
     doubleClickZoom:false, boxZoom:false, keyboard:false, touchZoom:false
   });
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
+  L.tileLayer(SATELLITE_TILE_URL, {
+    attribution: SATELLITE_ATTRIBUTION, maxZoom: 19
   }).addTo(plotDetailMap);
 
   const latlngs = plot.boundary.map(pt=>[pt.lat,pt.lng]);
