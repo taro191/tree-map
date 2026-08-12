@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.16</title>
+<title>ระบบแผนที่ต้นไม้ v1.17</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -278,13 +278,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.16</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.17</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.16</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.17</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -1348,6 +1348,13 @@ function fitToPlot(){
   map.fitBounds(bounds.pad(0.3));
 }
 
+const VIEW_TITLES = {
+  'home': 'หน้าแรก · รายการแปลงที่ดิน',
+  'plot-form': 'เพิ่มแปลงใหม่',
+  'plot-detail': 'รายละเอียดแปลง',
+  'trees': 'เพิ่ม/จัดการต้นไม้ในแปลง'
+};
+
 function setView(view){
   currentView = view;
   if(pickingPositionFor){
@@ -1355,6 +1362,7 @@ function setView(view){
     document.getElementById('crosshair-banner').classList.remove('show');
   }
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id==='view-'+view));
+  document.getElementById('sidebar-subtitle-view').textContent = VIEW_TITLES[view] || view;
   setSheetExpanded(true);
   if(view === 'plot-detail') renderPlotDetailMap();
   renderMarkers();
