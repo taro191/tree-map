@@ -29,7 +29,8 @@ function createPgStore(connectionString) {
       color: row.color,
       boundary: row.boundary || [],
       photo: row.photo,
-      docPhoto: row.doc_photo
+      docPhoto: row.doc_photo,
+      communityEnterpriseId: row.community_enterprise_id
     };
   }
 
@@ -53,19 +54,20 @@ function createPgStore(connectionString) {
 
   async function upsertPlot(plot) {
     const { rows } = await pool.query(
-      `INSERT INTO plots (id, name, owner_name, owner_contact, doc_title, area_rai, area_ngan, area_wa, district, province, postcode, color, boundary, photo, doc_photo)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+      `INSERT INTO plots (id, name, owner_name, owner_contact, doc_title, area_rai, area_ngan, area_wa, district, province, postcode, color, boundary, photo, doc_photo, community_enterprise_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
        ON CONFLICT (id) DO UPDATE SET
          name=EXCLUDED.name, owner_name=EXCLUDED.owner_name, owner_contact=EXCLUDED.owner_contact,
          doc_title=EXCLUDED.doc_title, area_rai=EXCLUDED.area_rai, area_ngan=EXCLUDED.area_ngan,
          area_wa=EXCLUDED.area_wa, district=EXCLUDED.district, province=EXCLUDED.province,
          postcode=EXCLUDED.postcode, color=EXCLUDED.color, boundary=EXCLUDED.boundary,
-         photo=EXCLUDED.photo, doc_photo=EXCLUDED.doc_photo
+         photo=EXCLUDED.photo, doc_photo=EXCLUDED.doc_photo, community_enterprise_id=EXCLUDED.community_enterprise_id
        RETURNING *`,
       [plot.id, plot.name, plot.ownerName || null, plot.ownerContact || null, plot.docTitle || null,
        plot.areaRai || null, plot.areaNgan || null, plot.areaWa || null, plot.district || null,
        plot.province || null, plot.postcode || null, plot.color || null,
-       JSON.stringify(plot.boundary || []), plot.photo || null, plot.docPhoto || null]
+       JSON.stringify(plot.boundary || []), plot.photo || null, plot.docPhoto || null,
+       plot.communityEnterpriseId || null]
     );
     return plotRowToObj(rows[0]);
   }
@@ -128,9 +130,88 @@ function createPgStore(connectionString) {
     return rows.map(userRowToObj);
   }
 
+  function communityEnterpriseRowToObj(row) {
+    return {
+      id: row.id,
+      name: row.name,
+      registrationNo: row.registration_no,
+      district: row.district,
+      province: row.province,
+      postcode: row.postcode,
+      registeredDate: row.registered_date,
+      chairperson: row.chairperson,
+      contactPhone: row.contact_phone,
+      purpose: row.purpose,
+      documentPhoto: row.document_photo,
+      createdAt: row.created_at
+    };
+  }
+
+  async function listCommunityEnterprises() {
+    const { rows } = await pool.query('SELECT * FROM community_enterprises ORDER BY created_at ASC');
+    return rows.map(communityEnterpriseRowToObj);
+  }
+
+  async function upsertCommunityEnterprise(entity) {
+    const { rows } = await pool.query(
+      `INSERT INTO community_enterprises (id, name, registration_no, district, province, postcode, registered_date, chairperson, contact_phone, purpose, document_photo)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       ON CONFLICT (id) DO UPDATE SET
+         name=EXCLUDED.name, registration_no=EXCLUDED.registration_no, district=EXCLUDED.district,
+         province=EXCLUDED.province, postcode=EXCLUDED.postcode, registered_date=EXCLUDED.registered_date,
+         chairperson=EXCLUDED.chairperson, contact_phone=EXCLUDED.contact_phone, purpose=EXCLUDED.purpose,
+         document_photo=EXCLUDED.document_photo
+       RETURNING *`,
+      [entity.id, entity.name, entity.registrationNo || null, entity.district || null, entity.province || null,
+       entity.postcode || null, entity.registeredDate || null, entity.chairperson || null,
+       entity.contactPhone || null, entity.purpose || null, entity.documentPhoto || null]
+    );
+    return communityEnterpriseRowToObj(rows[0]);
+  }
+
+  async function deleteCommunityEnterprise(id) {
+    await pool.query('DELETE FROM community_enterprises WHERE id = $1', [id]);
+  }
+
+  async function countCommunityEnterpriseMembers(id) {
+    const { rows } = await pool.query(
+      'SELECT COUNT(*)::int AS count FROM community_enterprise_members WHERE community_enterprise_id = $1', [id]
+    );
+    return rows[0].count;
+  }
+
+  async function listCommunityEnterpriseMembers(id) {
+    const { rows } = await pool.query(
+      `SELECT u.* FROM community_enterprise_members m
+       JOIN users u ON u.id = m.user_id
+       WHERE m.community_enterprise_id = $1
+       ORDER BY m.joined_at ASC`,
+      [id]
+    );
+    return rows.map(userRowToObj);
+  }
+
+  async function addCommunityEnterpriseMember(entityId, userId) {
+    await pool.query(
+      `INSERT INTO community_enterprise_members (community_enterprise_id, user_id) VALUES ($1,$2)
+       ON CONFLICT DO NOTHING`,
+      [entityId, userId]
+    );
+  }
+
+  async function removeCommunityEnterpriseMember(entityId, userId) {
+    await pool.query(
+      'DELETE FROM community_enterprise_members WHERE community_enterprise_id = $1 AND user_id = $2',
+      [entityId, userId]
+    );
+  }
+
   return {
     pool, initSchema, listPlots, upsertPlot, deletePlot, listTrees, upsertTree, deleteTree,
-    createUser, findUserByEmail, findUserByPhone, findUserById, listUsers
+    createUser, findUserByEmail, findUserByPhone, findUserById, listUsers,
+    listCommunityEnterprises, upsertCommunityEnterprise, deleteCommunityEnterprise,
+    countCommunityEnterpriseMembers, listCommunityEnterpriseMembers,
+    addCommunityEnterpriseMember, removeCommunityEnterpriseMember
   };
 }
 

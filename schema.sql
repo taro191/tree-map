@@ -41,3 +41,27 @@ CREATE TABLE IF NOT EXISTS users (
 
 ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT UNIQUE;
+
+CREATE TABLE IF NOT EXISTS community_enterprises (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  registration_no TEXT,
+  district TEXT,
+  province TEXT,
+  postcode TEXT,
+  registered_date DATE,
+  chairperson TEXT,
+  contact_phone TEXT,
+  purpose TEXT,
+  document_photo TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS community_enterprise_members (
+  community_enterprise_id TEXT NOT NULL REFERENCES community_enterprises(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (community_enterprise_id, user_id)
+);
+
+ALTER TABLE plots ADD COLUMN IF NOT EXISTS community_enterprise_id TEXT REFERENCES community_enterprises(id) ON DELETE SET NULL;

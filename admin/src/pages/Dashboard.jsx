@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { api } from '../api';
 import MapView from '../components/MapView';
@@ -66,6 +67,7 @@ export default function Dashboard() {
           <p className="text-xs text-slate-500">{user?.email}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Link to="/community-enterprises" className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-semibold hover:border-emerald-700">รัฐวิสาหกิจชุมชน</Link>
           <a href="/api/admin/export/plots.csv" className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-semibold hover:border-emerald-700">Export แปลง (CSV)</a>
           <a href="/api/admin/export/trees.csv" className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-semibold hover:border-emerald-700">Export ต้นไม้ (CSV)</a>
           <a href="/api/admin/export/geojson" className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-semibold hover:border-emerald-700">Export GeoJSON</a>

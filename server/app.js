@@ -157,6 +157,56 @@ function createApp(store) {
     } catch (err) { next(err); }
   });
 
+  app.get('/api/admin/community-enterprises', requireAuth, async (req, res, next) => {
+    try {
+      const entities = await store.listCommunityEnterprises();
+      const withMembers = await Promise.all(entities.map(async e => ({
+        ...e,
+        members: (await store.listCommunityEnterpriseMembers(e.id)).map(u => ({ id: u.id, email: u.email, phone: u.phone }))
+      })));
+      res.json(withMembers);
+    } catch (err) { next(err); }
+  });
+
+  app.put('/api/admin/community-enterprises/:id', requireAuth, async (req, res, next) => {
+    try {
+      const name = (req.body && req.body.name || '').trim();
+      if (!name) return res.status(400).json({ error: 'name is required' });
+      const entity = { ...req.body, id: req.params.id, name };
+      res.json(await store.upsertCommunityEnterprise(entity));
+    } catch (err) { next(err); }
+  });
+
+  app.delete('/api/admin/community-enterprises/:id', requireAuth, async (req, res, next) => {
+    try {
+      const memberCount = await store.countCommunityEnterpriseMembers(req.params.id);
+      if (memberCount > 0) {
+        return res.status(409).json({ error: 'ยังมีสมาชิกอยู่ในกลุ่ม ต้องนำสมาชิกออกให้หมดก่อนจึงจะลบได้' });
+      }
+      await store.deleteCommunityEnterprise(req.params.id);
+      res.status(204).end();
+    } catch (err) { next(err); }
+  });
+
+  app.post('/api/admin/community-enterprises/:id/members', requireAuth, async (req, res, next) => {
+    try {
+      const userId = req.body && req.body.userId;
+      if (!userId) return res.status(400).json({ error: 'userId is required' });
+      const user = await store.findUserById(userId);
+      if (!user) return res.status(404).json({ error: 'user not found' });
+      await store.addCommunityEnterpriseMember(req.params.id, userId);
+      const members = await store.listCommunityEnterpriseMembers(req.params.id);
+      res.status(201).json(members.map(u => ({ id: u.id, email: u.email, phone: u.phone })));
+    } catch (err) { next(err); }
+  });
+
+  app.delete('/api/admin/community-enterprises/:id/members/:userId', requireAuth, async (req, res, next) => {
+    try {
+      await store.removeCommunityEnterpriseMember(req.params.id, req.params.userId);
+      res.status(204).end();
+    } catch (err) { next(err); }
+  });
+
   app.get('/api/admin/export/plots.csv', requireAuth, async (req, res, next) => {
     try {
       res.set('Content-Type', 'text/csv; charset=utf-8');
