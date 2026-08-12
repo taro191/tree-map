@@ -23,7 +23,9 @@ function plotsToCSV(plots) {
     { label: 'district', get: p => p.district },
     { label: 'province', get: p => p.province },
     { label: 'postcode', get: p => p.postcode },
-    { label: 'boundaryPointCount', get: p => (p.boundary || []).length }
+    { label: 'boundaryPointCount', get: p => (p.boundary || []).length },
+    { label: 'refLat', get: p => p.refPoint ? p.refPoint.lat : '' },
+    { label: 'refLng', get: p => p.refPoint ? p.refPoint.lng : '' }
   ]);
 }
 
@@ -61,6 +63,13 @@ function toGeoJSON(plots, trees) {
           docTitle: p.docTitle, areaRai: p.areaRai, areaNgan: p.areaNgan, areaWa: p.areaWa,
           district: p.district, province: p.province, postcode: p.postcode
         }
+      });
+    }
+    if (p.refPoint) {
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [p.refPoint.lng, p.refPoint.lat] },
+        properties: { id: p.id + '-ref', plotId: p.id, type: 'referencePoint' }
       });
     }
   });

@@ -81,6 +81,30 @@ test('plot CRUD lifecycle', async () => {
   server.close();
 });
 
+test('plot reference point round-trip', async () => {
+  const { server, base } = await startServer();
+
+  const plot = { name: 'แปลง B1', boundary: [] };
+  let res = await fetch(`${base}/api/plots/p1`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(plot)
+  });
+  let saved = await res.json();
+  assert.equal(saved.refPoint, null);
+
+  res = await fetch(`${base}/api/plots/p1`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...plot, refPoint: { lat: 13.71, lng: 100.51 } })
+  });
+  saved = await res.json();
+  assert.deepEqual(saved.refPoint, { lat: 13.71, lng: 100.51 });
+
+  res = await fetch(`${base}/api/plots`);
+  const list = await res.json();
+  assert.deepEqual(list[0].refPoint, { lat: 13.71, lng: 100.51 });
+
+  server.close();
+});
+
 test('tree CRUD + validation + cascade delete on plot removal', async () => {
   const { server, base } = await startServer();
 

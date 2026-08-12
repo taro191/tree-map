@@ -11,7 +11,7 @@ function createMemoryStore() {
       return [...plots.values()];
     },
     async upsertPlot(plot) {
-      const saved = { ...plot, boundary: plot.boundary || [] };
+      const saved = { ...plot, boundary: plot.boundary || [], refPoint: plot.refPoint || null };
       plots.set(plot.id, saved);
       return saved;
     },

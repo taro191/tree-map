@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.11</title>
+<title>ระบบแผนที่ต้นไม้ v1.12</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -160,6 +160,12 @@
   }
   .tree-pin span{transform:rotate(45deg);font-weight:700;font-size:12px;}
 
+  .ref-pin{
+    background:var(--primary-dark);color:white;border-radius:50%;
+    width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+    font-size:14px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3);
+  }
+
   #crosshair-banner{
     position:absolute;top:calc(env(safe-area-inset-top,0px) + 62px);left:50%;transform:translateX(-50%);
     background:var(--primary-dark);color:white;padding:9px 16px;border-radius:20px;
@@ -249,13 +255,13 @@
         <button id="menu-item-toggle-sheet">⬍ ย่อ/ขยายแผงข้อมูล</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.11</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.12</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.11</span></p>
+      <p>บันทึกแปลง เจ้าของแปลง และตำแหน่งต้นไม้ · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.12</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -387,6 +393,20 @@
     <div style="display:flex;gap:8px;">
       <button class="btn secondary" id="btn-cancel-tree">ยกเลิก</button>
       <button class="btn" id="btn-save-tree">บันทึกต้นไม้</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="refpoint-modal-overlay">
+  <div class="modal">
+    <h3>บันทึกจุดอ้างอิง</h3>
+    <div class="gps-readout" id="refpoint-modal-latlng">lat: -, lng: -</div>
+    <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.5;">
+      ต้องบันทึกจุดอ้างอิงของแปลงนี้ก่อน 1 จุด จึงจะเริ่มปักหมุดต้นไม้ได้ ต้นไม้ต้นแรกที่บันทึกหลังจากนี้จะเป็น "ต้นที่ 1"
+    </p>
+    <div style="display:flex;gap:8px;">
+      <button class="btn secondary" id="btn-cancel-refpoint">ยกเลิก</button>
+      <button class="btn" id="btn-save-refpoint">บันทึกจุดอ้างอิง</button>
     </div>
   </div>
 </div>
@@ -541,7 +561,8 @@ function initMap(){
     if(!selectedPlotId){ alert('กรุณาเลือกแปลงก่อนเพิ่มต้นไม้'); return; }
     if(!plotHasBoundary(selectedPlotId)){ alert('แปลงนี้ยังไม่มีขอบเขตที่บันทึกไว้'); return; }
     pendingLatLng = e.latlng;
-    openAddTreeModal();
+    const plot = plots.find(p=>p.id===selectedPlotId);
+    if(plot && !plot.refPoint){ openRefPointModal(); } else { openAddTreeModal(); }
   });
 }
 
@@ -556,7 +577,8 @@ function updateBanner(){
     b.textContent = walking ? '🚶 กำลังบันทึกเส้นทางเดินสำรวจ... เดินรอบแปลง' : 'แตะบนแผนที่เพื่อวางจุดขอบเขตแปลง';
     b.classList.add('show');
   } else if(addMode){
-    b.textContent = 'คลิกบนแผนที่เพื่อวางตำแหน่งต้นไม้';
+    const plot = plots.find(p=>p.id===selectedPlotId);
+    b.textContent = (plot && !plot.refPoint) ? 'คลิกบนแผนที่เพื่อวางจุดอ้างอิง' : 'คลิกบนแผนที่เพื่อวางตำแหน่งต้นไม้';
     b.classList.add('show');
   } else {
     b.classList.remove('show');
@@ -670,6 +692,12 @@ function setModalPhotoPreview(prefix, value){
   }
 }
 
+function openRefPointModal(){
+  document.getElementById('refpoint-modal-latlng').textContent =
+    `lat: ${pendingLatLng.lat.toFixed(6)}, lng: ${pendingLatLng.lng.toFixed(6)}`;
+  document.getElementById('refpoint-modal-overlay').classList.add('show');
+}
+
 function openAddTreeModal(){
   editingTreeId = null;
   modalTreePhoto = null;
@@ -753,9 +781,10 @@ function locateUser(onDone){
 function placeTreeAtGPS(){
   if(!selectedPlotId){ alert('กรุณาเลือกแปลงก่อน'); return; }
   if(!plotHasBoundary(selectedPlotId)){ alert('แปลงนี้ยังไม่มีขอบเขตที่บันทึกไว้'); return; }
+  const plot = plots.find(p=>p.id===selectedPlotId);
   locateUser((latlng)=>{
     pendingLatLng = L.latLng(latlng.lat, latlng.lng);
-    openAddTreeModal();
+    if(plot && !plot.refPoint){ openRefPointModal(); } else { openAddTreeModal(); }
   });
 }
 
@@ -897,16 +926,18 @@ function renderTreeTab(){
     return;
   }
 
+  const needsRefPoint = !plot.refPoint;
   let html = `
     <div class="active-plot-banner">กำลังเพิ่มต้นไม้ในแปลง: <b>${escapeHtml(plot.name)}</b></div>
+    ${needsRefPoint ? '<div class="empty-hint" style="padding:12px;background:var(--tag);border-radius:10px;margin-bottom:14px;">⚠️ ต้องบันทึกจุดอ้างอิงก่อน จึงจะเริ่มปักหมุดต้นไม้ได้</div>' : ''}
     <div class="mode-toggle">
-      <span>โหมดเพิ่มต้นไม้ (คลิกบนแผนที่)</span>
+      <span>${needsRefPoint ? 'โหมดบันทึกจุดอ้างอิง (คลิกบนแผนที่)' : 'โหมดเพิ่มต้นไม้ (คลิกบนแผนที่)'}</span>
       <div class="switch ${addMode?'on':''}" id="mode-switch"><div class="knob"></div></div>
     </div>
-    <button class="btn secondary small" id="btn-gps-tree" style="width:100%;margin-bottom:14px;">📍 ใช้ตำแหน่ง GPS ปัจจุบันเป็นตำแหน่งต้นไม้</button>
+    <button class="btn secondary small" id="btn-gps-tree" style="width:100%;margin-bottom:14px;">📍 ใช้ตำแหน่ง GPS ปัจจุบันเป็น${needsRefPoint ? 'จุดอ้างอิง' : 'ตำแหน่งต้นไม้'}</button>
   `;
   if(list.length===0){
-    html += '<div class="empty-hint">ยังไม่มีต้นไม้ในแปลงนี้<br>เปิดโหมดเพิ่มต้นไม้แล้วคลิกบนแผนที่</div>';
+    html += `<div class="empty-hint">ยังไม่มีต้นไม้ในแปลงนี้<br>${needsRefPoint ? 'บันทึกจุดอ้างอิงก่อน แล้วจึงเปิดโหมดเพิ่มต้นไม้' : 'เปิดโหมดเพิ่มต้นไม้แล้วคลิกบนแผนที่'}</div>`;
   } else {
     list.forEach(t=>{
       const sub = [t.code ? 'โค้ด: '+escapeHtml(t.code) : '', escapeHtml(t.note||'')].filter(Boolean).join(' · ');
@@ -970,6 +1001,17 @@ function renderMarkers(){
       </div>
     `);
   });
+
+  plots.forEach(p=>{
+    if(!p.refPoint) return;
+    const icon = L.divIcon({
+      className:'',
+      html:`<div class="ref-pin" style="background:${p.color}">🚩</div>`,
+      iconSize:[28,28], iconAnchor:[14,28]
+    });
+    L.marker([p.refPoint.lat, p.refPoint.lng], {icon}).addTo(markerLayer)
+      .bindTooltip('จุดอ้างอิง: '+p.name, {sticky:true});
+  });
 }
 
 function renderBoundaries(){
@@ -1018,6 +1060,15 @@ function renderPlotDetailMap(){
   });
 
   const bounds = L.latLngBounds(latlngs);
+  if(plot.refPoint){
+    const refIcon = L.divIcon({
+      className:'',
+      html:`<div class="ref-pin" style="background:${plot.color}">🚩</div>`,
+      iconSize:[26,26], iconAnchor:[13,26]
+    });
+    L.marker([plot.refPoint.lat, plot.refPoint.lng], {icon: refIcon}).addTo(plotDetailMap);
+    bounds.extend([plot.refPoint.lat, plot.refPoint.lng]);
+  }
   setTimeout(()=>{
     if(!plotDetailMap) return;
     plotDetailMap.invalidateSize();
@@ -1424,6 +1475,25 @@ document.getElementById('btn-cancel-tree').onclick = ()=>{
   document.getElementById('modal-overlay').classList.remove('show');
   pendingLatLng = null;
   editingTreeId = null;
+};
+
+document.getElementById('btn-cancel-refpoint').onclick = ()=>{
+  document.getElementById('refpoint-modal-overlay').classList.remove('show');
+  pendingLatLng = null;
+};
+
+document.getElementById('btn-save-refpoint').onclick = async ()=>{
+  if(!pendingLatLng || !selectedPlotId) return;
+  const plot = plots.find(p=>p.id===selectedPlotId);
+  if(!plot) return;
+  const updatedPlot = { ...plot, refPoint: { lat: pendingLatLng.lat, lng: pendingLatLng.lng } };
+  try{ await apiSavePlot(updatedPlot); }catch(err){ alert(err.message); return; }
+  const idx = plots.findIndex(p=>p.id===plot.id);
+  if(idx>=0) plots[idx] = updatedPlot;
+  document.getElementById('refpoint-modal-overlay').classList.remove('show');
+  pendingLatLng = null;
+  renderAll();
+  updateBanner();
 };
 
 document.getElementById('btn-tree-photo-camera').onclick = ()=> document.getElementById('in-tree-photo-camera').click();

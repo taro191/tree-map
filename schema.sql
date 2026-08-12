@@ -68,3 +68,6 @@ CREATE TABLE IF NOT EXISTS community_enterprise_members (
 );
 
 ALTER TABLE plots ADD COLUMN IF NOT EXISTS community_enterprise_id TEXT REFERENCES community_enterprises(id) ON DELETE SET NULL;
+
+ALTER TABLE plots ADD COLUMN IF NOT EXISTS ref_lat DOUBLE PRECISION;
+ALTER TABLE plots ADD COLUMN IF NOT EXISTS ref_lng DOUBLE PRECISION;
