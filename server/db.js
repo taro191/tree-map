@@ -23,6 +23,7 @@ function createPgStore(connectionString) {
       areaRai: row.area_rai,
       areaNgan: row.area_ngan,
       areaWa: row.area_wa,
+      subdistrict: row.subdistrict,
       district: row.district,
       province: row.province,
       postcode: row.postcode,
@@ -31,6 +32,7 @@ function createPgStore(connectionString) {
       photo: row.photo,
       docPhoto: row.doc_photo,
       communityEnterpriseId: row.community_enterprise_id,
+      createdBy: row.created_by,
       refPoint: (row.ref_lat != null && row.ref_lng != null) ? {
         lat: Number(row.ref_lat), lng: Number(row.ref_lng),
         description: row.ref_description || '',
@@ -61,25 +63,26 @@ function createPgStore(connectionString) {
 
   async function upsertPlot(plot) {
     const { rows } = await pool.query(
-      `INSERT INTO plots (id, name, owner_name, owner_contact, doc_title, area_rai, area_ngan, area_wa, district, province, postcode, color, boundary, photo, doc_photo, community_enterprise_id, ref_lat, ref_lng, ref_description, ref_photos)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+      `INSERT INTO plots (id, name, owner_name, owner_contact, doc_title, area_rai, area_ngan, area_wa, subdistrict, district, province, postcode, color, boundary, photo, doc_photo, community_enterprise_id, ref_lat, ref_lng, ref_description, ref_photos, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
        ON CONFLICT (id) DO UPDATE SET
          name=EXCLUDED.name, owner_name=EXCLUDED.owner_name, owner_contact=EXCLUDED.owner_contact,
          doc_title=EXCLUDED.doc_title, area_rai=EXCLUDED.area_rai, area_ngan=EXCLUDED.area_ngan,
-         area_wa=EXCLUDED.area_wa, district=EXCLUDED.district, province=EXCLUDED.province,
+         area_wa=EXCLUDED.area_wa, subdistrict=EXCLUDED.subdistrict, district=EXCLUDED.district, province=EXCLUDED.province,
          postcode=EXCLUDED.postcode, color=EXCLUDED.color, boundary=EXCLUDED.boundary,
          photo=EXCLUDED.photo, doc_photo=EXCLUDED.doc_photo, community_enterprise_id=EXCLUDED.community_enterprise_id,
          ref_lat=EXCLUDED.ref_lat, ref_lng=EXCLUDED.ref_lng,
          ref_description=EXCLUDED.ref_description, ref_photos=EXCLUDED.ref_photos
        RETURNING *`,
       [plot.id, plot.name, plot.ownerName || null, plot.ownerContact || null, plot.docTitle || null,
-       plot.areaRai || null, plot.areaNgan || null, plot.areaWa || null, plot.district || null,
-       plot.province || null, plot.postcode || null, plot.color || null,
+       plot.areaRai || null, plot.areaNgan || null, plot.areaWa || null, plot.subdistrict || null,
+       plot.district || null, plot.province || null, plot.postcode || null, plot.color || null,
        JSON.stringify(plot.boundary || []), plot.photo || null, plot.docPhoto || null,
        plot.communityEnterpriseId || null,
        plot.refPoint ? plot.refPoint.lat : null, plot.refPoint ? plot.refPoint.lng : null,
        plot.refPoint ? (plot.refPoint.description || null) : null,
-       JSON.stringify(plot.refPoint ? (plot.refPoint.photos || []) : [])]
+       JSON.stringify(plot.refPoint ? (plot.refPoint.photos || []) : []),
+       plot.createdBy || null]
     );
     return plotRowToObj(rows[0]);
   }

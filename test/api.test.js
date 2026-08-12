@@ -81,6 +81,34 @@ test('plot CRUD lifecycle', async () => {
   server.close();
 });
 
+test('plot subdistrict persists, and created_by is set on create but immutable on later edits', async () => {
+  const { server, base } = await startServer();
+
+  const plot = {
+    name: 'แปลง B1', subdistrict: 'วัดเกต', district: 'เมืองเชียงใหม่', province: 'เชียงใหม่', postcode: '50000',
+    boundary: [{ lat: 13.7, lng: 100.5 }, { lat: 13.71, lng: 100.5 }, { lat: 13.71, lng: 100.51 }],
+    createdBy: 'user-1'
+  };
+  let res = await fetch(`${base}/api/plots/p-created-by`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(plot)
+  });
+  let saved = await res.json();
+  assert.equal(saved.subdistrict, 'วัดเกต');
+  assert.equal(saved.createdBy, 'user-1');
+
+  // editing with a different createdBy must not change the original creator
+  res = await fetch(`${base}/api/plots/p-created-by`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...plot, name: 'แปลง B1 แก้ไข', subdistrict: 'ท่าศาลา', createdBy: 'user-2' })
+  });
+  saved = await res.json();
+  assert.equal(saved.name, 'แปลง B1 แก้ไข');
+  assert.equal(saved.subdistrict, 'ท่าศาลา');
+  assert.equal(saved.createdBy, 'user-1'); // unchanged despite the request sending user-2
+
+  server.close();
+});
+
 test('plot reference point round-trip', async () => {
   const { server, base } = await startServer();
 

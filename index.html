@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.18</title>
+<title>ระบบแผนที่ต้นไม้ v1.19</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -284,13 +284,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.18</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.19</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.18</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.19</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -1916,7 +1916,8 @@ document.getElementById('btn-save-boundary').onclick = async ()=>{
     subdistrict: creatingPlot.subdistrict, district: creatingPlot.district,
     province: creatingPlot.province, postcode: creatingPlot.postcode,
     photo: null, docPhoto: null, color: creatingPlot.color,
-    boundary: creatingPlot.points.slice()
+    boundary: creatingPlot.points.slice(),
+    createdBy: identifiedUser ? identifiedUser.id : null
   };
   try{ await apiSavePlot(plot); }catch(err){ alert(err.message); return; }
   plots.push(plot);
