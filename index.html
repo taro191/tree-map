@@ -29,16 +29,28 @@
   #topbar{
     position:absolute;top:0;left:0;right:0;z-index:900;
     display:flex;align-items:center;justify-content:space-between;
-    padding:calc(env(safe-area-inset-top,0px) + 12px) 14px 30px;
+    padding:calc(env(safe-area-inset-top,0px) + 12px) 14px 30px 58px;
     background:linear-gradient(rgba(20,28,22,.45), transparent);
     pointer-events:none;
   }
-  #topbar h1{font-size:16.5px;font-weight:700;color:white;text-shadow:0 1px 4px rgba(0,0,0,.45);pointer-events:none;}
+  #topbar h1{font-size:16.5px;font-weight:700;color:white;text-shadow:0 1px 4px rgba(0,0,0,.45);pointer-events:none;text-align:right;}
+  #menu-wrap{position:relative;pointer-events:auto;flex-shrink:0;}
   #menu-btn{
-    pointer-events:auto;width:42px;height:42px;border-radius:50%;background:white;
+    width:42px;height:42px;border-radius:50%;background:white;
     box-shadow:0 2px 10px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;
     font-size:18px;border:none;cursor:pointer;flex-shrink:0;
   }
+  #menu-dropdown{
+    position:absolute;top:50px;left:0;z-index:901;
+    background:var(--panel);border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.25);
+    padding:6px;min-width:190px;display:none;flex-direction:column;gap:2px;
+  }
+  #menu-dropdown.show{display:flex;}
+  #menu-dropdown button{
+    text-align:left;padding:10px 12px;border:none;background:none;border-radius:8px;
+    font-family:inherit;font-size:13.5px;font-weight:600;color:var(--ink);cursor:pointer;
+  }
+  #menu-dropdown button:hover{background:var(--tag);}
 
   /* Bottom sheet */
   #sidebar{
@@ -225,8 +237,14 @@
   </div>
 
   <div id="topbar">
+    <div id="menu-wrap">
+      <button id="menu-btn">☰</button>
+      <div id="menu-dropdown">
+        <button id="menu-item-home">🏠 กลับหน้าแรก</button>
+        <button id="menu-item-toggle-sheet">⬍ ย่อ/ขยายแผงข้อมูล</button>
+      </div>
+    </div>
     <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.10</span></h1>
-    <button id="menu-btn">☰</button>
   </div>
 
   <div id="sidebar" class="expanded">
@@ -301,7 +319,6 @@
           <button class="btn" id="btn-save-boundary" disabled>บันทึกแปลง</button>
         </div>
       </div>
-    </div>
 
     <div class="panel" id="view-plot-detail">
       <div style="display:flex;gap:8px;margin-bottom:14px;">
@@ -1253,7 +1270,24 @@ document.getElementById('btn-save-tree').onclick = async ()=>{
   renderAll();
 };
 
-document.getElementById('menu-btn').onclick = toggleSheet;
+document.getElementById('menu-btn').onclick = (e)=>{
+  e.stopPropagation();
+  document.getElementById('menu-dropdown').classList.toggle('show');
+};
+document.getElementById('menu-item-home').onclick = ()=>{
+  setView('home');
+  document.getElementById('menu-dropdown').classList.remove('show');
+};
+document.getElementById('menu-item-toggle-sheet').onclick = ()=>{
+  toggleSheet();
+  document.getElementById('menu-dropdown').classList.remove('show');
+};
+document.addEventListener('click', (e)=>{
+  const dropdown = document.getElementById('menu-dropdown');
+  if(dropdown.classList.contains('show') && !document.getElementById('menu-wrap').contains(e.target)){
+    dropdown.classList.remove('show');
+  }
+});
 document.getElementById('sheet-handle-wrap').onclick = toggleSheet;
 
 document.getElementById('gps-btn').onclick = ()=> locateUser();
