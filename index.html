@@ -449,6 +449,7 @@ let pendingLatLng = null;
 let editingColor = COLORS[0];
 let map, markerLayer, boundaryLayer, boundaryPreviewLayer;
 let plotDetailMap = null;
+let currentView = 'home';
 
 let creatingPlot = null;   // {name, ownerName, ownerContact, color, points:[]}
 let boundaryMode = false;
@@ -1072,26 +1073,28 @@ function renderTreeTab(){
 
 function renderMarkers(){
   markerLayer.clearLayers();
-  trees.forEach(t=>{
-    const plot = plots.find(p=>p.id===t.plotId);
-    const color = plot ? plot.color : '#3D6B4A';
-    const icon = L.divIcon({
-      className:'',
-      html:`<div class="tree-pin" style="background:${color}"><span>${t.seq}</span></div>`,
-      iconSize:[30,30], iconAnchor:[15,30]
+  if(currentView !== 'home'){
+    trees.forEach(t=>{
+      const plot = plots.find(p=>p.id===t.plotId);
+      const color = plot ? plot.color : '#3D6B4A';
+      const icon = L.divIcon({
+        className:'',
+        html:`<div class="tree-pin" style="background:${color}"><span>${t.seq}</span></div>`,
+        iconSize:[30,30], iconAnchor:[15,30]
+      });
+      const marker = L.marker([t.lat,t.lng], {icon}).addTo(markerLayer);
+      const photoHtml = t.photoUrl ? `<img src="${escapeAttr(t.photoUrl)}" onerror="this.style.display='none'">` : '';
+      marker.bindPopup(`
+        <div class="popup-card">
+          <div class="pseq">ต้นที่ ${t.seq} · ${escapeHtml(plot?plot.name:'')}</div>
+          <div class="pname">${escapeHtml(t.name||'ไม่ระบุชื่อ')}</div>
+          ${photoHtml}
+          ${t.code?`<div class="pnote">โค้ด: ${escapeHtml(t.code)}</div>`:''}
+          ${t.note?`<div class="pnote">${escapeHtml(t.note)}</div>`:''}
+        </div>
+      `);
     });
-    const marker = L.marker([t.lat,t.lng], {icon}).addTo(markerLayer);
-    const photoHtml = t.photoUrl ? `<img src="${escapeAttr(t.photoUrl)}" onerror="this.style.display='none'">` : '';
-    marker.bindPopup(`
-      <div class="popup-card">
-        <div class="pseq">ต้นที่ ${t.seq} · ${escapeHtml(plot?plot.name:'')}</div>
-        <div class="pname">${escapeHtml(t.name||'ไม่ระบุชื่อ')}</div>
-        ${photoHtml}
-        ${t.code?`<div class="pnote">โค้ด: ${escapeHtml(t.code)}</div>`:''}
-        ${t.note?`<div class="pnote">${escapeHtml(t.note)}</div>`:''}
-      </div>
-    `);
-  });
+  }
 
   plots.forEach(p=>{
     if(!p.refPoint) return;
@@ -1184,9 +1187,11 @@ function fitToPlot(){
 }
 
 function setView(view){
+  currentView = view;
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id==='view-'+view));
   setSheetExpanded(true);
   if(view === 'plot-detail') renderPlotDetailMap();
+  renderMarkers();
 }
 
 function renderAll(){
