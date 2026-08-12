@@ -30,3 +30,10 @@ CREATE TABLE IF NOT EXISTS trees (
 );
 
 CREATE INDEX IF NOT EXISTS idx_trees_plot_id ON trees(plot_id);
+
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

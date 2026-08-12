@@ -1,0 +1,32 @@
+async function request(path, options = {}) {
+  const res = await fetch(path, {
+    credentials: 'include',
+    headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
+    ...options
+  });
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`;
+    try {
+      const data = await res.json();
+      if (data && data.error) message = data.error;
+    } catch (e) { /* ignore non-JSON error bodies */ }
+    throw new Error(message);
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+export const api = {
+  me: () => request('/api/auth/me'),
+  register: (email, password) => request('/api/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  login: (email, password) => request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  logout: () => request('/api/auth/logout', { method: 'POST' }),
+
+  listPlots: () => request('/api/plots'),
+  savePlot: (plot) => request(`/api/plots/${encodeURIComponent(plot.id)}`, { method: 'PUT', body: JSON.stringify(plot) }),
+  deletePlot: (id) => request(`/api/plots/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  listTrees: () => request('/api/trees'),
+  saveTree: (tree) => request(`/api/trees/${encodeURIComponent(tree.id)}`, { method: 'PUT', body: JSON.stringify(tree) }),
+  deleteTree: (id) => request(`/api/trees/${encodeURIComponent(id)}`, { method: 'DELETE' })
+};

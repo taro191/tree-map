@@ -96,7 +96,32 @@ function createPgStore(connectionString) {
     await pool.query('DELETE FROM trees WHERE id = $1', [id]);
   }
 
-  return { pool, initSchema, listPlots, upsertPlot, deletePlot, listTrees, upsertTree, deleteTree };
+  function userRowToObj(row) {
+    return { id: row.id, email: row.email, passwordHash: row.password_hash };
+  }
+
+  async function createUser(id, email, passwordHash) {
+    const { rows } = await pool.query(
+      'INSERT INTO users (id, email, password_hash) VALUES ($1,$2,$3) RETURNING *',
+      [id, email, passwordHash]
+    );
+    return userRowToObj(rows[0]);
+  }
+
+  async function findUserByEmail(email) {
+    const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    return rows[0] ? userRowToObj(rows[0]) : null;
+  }
+
+  async function findUserById(id) {
+    const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    return rows[0] ? userRowToObj(rows[0]) : null;
+  }
+
+  return {
+    pool, initSchema, listPlots, upsertPlot, deletePlot, listTrees, upsertTree, deleteTree,
+    createUser, findUserByEmail, findUserById
+  };
 }
 
 module.exports = { createPgStore };

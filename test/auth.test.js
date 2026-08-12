@@ -1,0 +1,144 @@
+process.env.JWT_SECRET = 'test-secret';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { createApp } = require('../server/app');
+const { createMemoryStore } = require('./memoryStore');
+
+function startServer() {
+  const store = createMemoryStore();
+  const app = createApp(store);
+  return new Promise((resolve) => {
+    const server = app.listen(0, () => {
+      const { port } = server.address();
+      resolve({ server, base: `http://127.0.0.1:${port}` });
+    });
+  });
+}
+
+function getCookie(res) {
+  const raw = res.headers.get('set-cookie');
+  return raw ? raw.split(';')[0] : null;
+}
+
+test('register rejects invalid email / short password', async () => {
+  const { server, base } = await startServer();
+  let res = await fetch(`${base}/api/auth/register`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'not-an-email', password: 'longenough123' })
+  });
+  assert.equal(res.status, 400);
+
+  res = await fetch(`${base}/api/auth/register`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'a@b.com', password: 'short' })
+  });
+  assert.equal(res.status, 400);
+  server.close();
+});
+
+test('register -> me -> logout -> me fails', async () => {
+  const { server, base } = await startServer();
+
+  let res = await fetch(`${base}/api/auth/register`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'admin@example.com', password: 'longenough123' })
+  });
+  assert.equal(res.status, 201);
+  const cookie = getCookie(res);
+  assert.ok(cookie, 'expected a session cookie to be set');
+
+  res = await fetch(`${base}/api/auth/me`, { headers: { Cookie: cookie } });
+  assert.equal(res.status, 200);
+  const me = await res.json();
+  assert.equal(me.email, 'admin@example.com');
+
+  // no cookie -> unauthenticated
+  res = await fetch(`${base}/api/auth/me`);
+  assert.equal(res.status, 401);
+
+  res = await fetch(`${base}/api/auth/logout`, { method: 'POST', headers: { Cookie: cookie } });
+  assert.equal(res.status, 204);
+
+  server.close();
+});
+
+test('duplicate registration is rejected', async () => {
+  const { server, base } = await startServer();
+  const payload = { email: 'dup@example.com', password: 'longenough123' };
+  let res = await fetch(`${base}/api/auth/register`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+  });
+  assert.equal(res.status, 201);
+
+  res = await fetch(`${base}/api/auth/register`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+  });
+  assert.equal(res.status, 409);
+  server.close();
+});
+
+test('login with wrong password fails, correct password succeeds', async () => {
+  const { server, base } = await startServer();
+  await fetch(`${base}/api/auth/register`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'user@example.com', password: 'correct-password' })
+  });
+
+  let res = await fetch(`${base}/api/auth/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'user@example.com', password: 'wrong-password' })
+  });
+  assert.equal(res.status, 401);
+
+  res = await fetch(`${base}/api/auth/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'user@example.com', password: 'correct-password' })
+  });
+  assert.equal(res.status, 200);
+  assert.ok(getCookie(res));
+  server.close();
+});
+
+test('admin export endpoints require auth', async () => {
+  const { server, base } = await startServer();
+
+  let res = await fetch(`${base}/api/admin/export/plots.csv`);
+  assert.equal(res.status, 401);
+  res = await fetch(`${base}/api/admin/export/trees.csv`);
+  assert.equal(res.status, 401);
+  res = await fetch(`${base}/api/admin/export/geojson`);
+  assert.equal(res.status, 401);
+
+  const reg = await fetch(`${base}/api/auth/register`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'exporter@example.com', password: 'longenough123' })
+  });
+  const cookie = getCookie(reg);
+
+  await fetch(`${base}/api/plots/p1`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'แปลง A1', boundary: [{ lat: 1, lng: 1 }, { lat: 2, lng: 1 }, { lat: 2, lng: 2 }] })
+  });
+  await fetch(`${base}/api/trees/t1`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plotId: 'p1', seq: 1, lat: 1.5, lng: 1.5 })
+  });
+
+  res = await fetch(`${base}/api/admin/export/plots.csv`, { headers: { Cookie: cookie } });
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /text\/csv/);
+  const plotsCsv = await res.text();
+  assert.match(plotsCsv, /แปลง A1/);
+
+  res = await fetch(`${base}/api/admin/export/trees.csv`, { headers: { Cookie: cookie } });
+  assert.equal(res.status, 200);
+
+  res = await fetch(`${base}/api/admin/export/geojson`, { headers: { Cookie: cookie } });
+  assert.equal(res.status, 200);
+  const geojson = await res.json();
+  assert.equal(geojson.type, 'FeatureCollection');
+  assert.equal(geojson.features.length, 2); // 1 polygon + 1 point
+
+  server.close();
+});

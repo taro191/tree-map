@@ -8,6 +8,10 @@ if (!DATABASE_URL) {
   console.error('Missing DATABASE_URL environment variable.');
   process.exit(1);
 }
+if (!process.env.JWT_SECRET) {
+  console.error('Missing JWT_SECRET environment variable.');
+  process.exit(1);
+}
 
 const store = createPgStore(DATABASE_URL);
 

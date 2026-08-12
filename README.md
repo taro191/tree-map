@@ -18,10 +18,22 @@ npm run dev
 
 ```
 npm install
-DATABASE_URL=postgresql://user:pass@localhost:5432/tree_map npm start
+DATABASE_URL=postgresql://user:pass@localhost:5432/tree_map JWT_SECRET=change-me npm start
 ```
 
 Schema จะถูกสร้างอัตโนมัติตอนเริ่มทำงาน (จาก `schema.sql`)
+
+## หน้า admin (`/admin`)
+
+ต้อง build ก่อนถึงจะใช้งานได้ (dev server ปกติของ root project ไม่ได้ build ให้อัตโนมัติ):
+
+```
+npm run build
+```
+
+จะได้ `admin/dist` แล้ว Express จะ serve ที่ `/admin` ให้อัตโนมัติ (ทั้ง `npm run dev` และ `npm start`) ถ้าจะแก้โค้ดในโฟลเดอร์ `admin/` บ่อยๆ ให้รัน `npm run dev:admin` แทน (Vite dev server แยก, proxy `/api` ไปที่ `localhost:3000` — ต้องรัน `npm start` คู่กันด้วย)
+
+หน้า `/admin` ต้องสมัครสมาชิก/login ก่อนใช้งาน (เปิดให้สมัครเองได้อิสระ) ส่วน `/api/plots` และ `/api/trees` ที่แอปหลักใช้ **ยังเปิดสาธารณะเหมือนเดิม ไม่มี auth**
 
 ## ทดสอบ
 
