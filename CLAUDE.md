@@ -37,6 +37,7 @@
 - **(v1.8)** ย้ายจาก `window.storage` shim ไปใช้ backend จริง (Node/Express + Postgres บน Render) — ดูรายละเอียดที่หัวข้อ "Backend / Deploy" ด้านล่าง
 - **(v1.9)** ย้ายส่วนรูปแปลง+รูปเอกสารที่ดิน (`renderPlotDetail()`) จากแท็บ "ต้นไม้" ไปแท็บ "แปลงที่ดิน" แทน (แสดงใน `#plot-detail` ต่อจากรายการแปลง) แท็บ "ต้นไม้" เหลือแค่ banner ข้อมูลแปลง + โหมดเพิ่มต้นไม้ ไม่มีรูปภาพอีกต่อไป
 - **เว็บ admin**: หน้า `/admin` (React) ครบตามแผนเดิมใน CLAUDE.md — สมัคร/login (เปิดสมัครเองอิสระ), ดูแผนที่รวมทุกแปลง+ต้นไม้, ตารางแปลง/ต้นไม้แบบแก้ไข inline + ลบ, ปุ่ม export CSV (แปลง/ต้นไม้แยกไฟล์) และ GeoJSON (polygon แปลง + point ต้นไม้ รวมไฟล์เดียว) ทุก export endpoint ต้อง login (`requireAuth` middleware ใน `server/auth.js`)
+- **จัดการผู้ใช้จากหน้า admin**: admin ที่ login อยู่เพิ่มผู้ใช้ใหม่ได้เอง (กรอกอีเมล+รหัสผ่านให้ผู้ใช้ใหม่โดยตรง ไม่ต้องรอสมัครเอง) ผ่าน `UsersPanel` ใน dashboard — endpoint `GET/POST /api/admin/users` (ต้อง `requireAuth`) `POST` **ไม่ตั้ง session cookie ให้ตัวเอง** (สำคัญ: ต้องไม่ทำให้ admin ที่กำลังเพิ่มคนอื่นหลุด session ตัวเอง) เทียบกับ `/api/auth/register` ที่ตั้ง cookie ให้ตอนคนสมัครเอง
 
 ## บั๊กที่เคยเจอและแก้แล้ว
 

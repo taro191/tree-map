@@ -8,6 +8,12 @@ const { plotsToCSV, treesToCSV, toGeoJSON } = require('./export');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function validateCredentials(email, password) {
+  if (!EMAIL_RE.test(email)) return 'invalid email';
+  if (password.length < 8) return 'password must be at least 8 characters';
+  return null;
+}
+
 function createApp(store) {
   const app = express();
   app.use(express.json({ limit: '5mb' }));
@@ -33,8 +39,8 @@ function createApp(store) {
     try {
       const email = (req.body && req.body.email || '').trim().toLowerCase();
       const password = (req.body && req.body.password) || '';
-      if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'invalid email' });
-      if (password.length < 8) return res.status(400).json({ error: 'password must be at least 8 characters' });
+      const validationError = validateCredentials(email, password);
+      if (validationError) return res.status(400).json({ error: validationError });
       const existing = await store.findUserByEmail(email);
       if (existing) return res.status(409).json({ error: 'an account with this email already exists' });
       const passwordHash = await hashPassword(password);
@@ -110,6 +116,27 @@ function createApp(store) {
     try {
       await store.deleteTree(req.params.id);
       res.status(204).end();
+    } catch (err) { next(err); }
+  });
+
+  app.get('/api/admin/users', requireAuth, async (req, res, next) => {
+    try {
+      const users = await store.listUsers();
+      res.json(users.map(u => ({ id: u.id, email: u.email, createdAt: u.createdAt })));
+    } catch (err) { next(err); }
+  });
+
+  app.post('/api/admin/users', requireAuth, async (req, res, next) => {
+    try {
+      const email = (req.body && req.body.email || '').trim().toLowerCase();
+      const password = (req.body && req.body.password) || '';
+      const validationError = validateCredentials(email, password);
+      if (validationError) return res.status(400).json({ error: validationError });
+      const existing = await store.findUserByEmail(email);
+      if (existing) return res.status(409).json({ error: 'an account with this email already exists' });
+      const passwordHash = await hashPassword(password);
+      const user = await store.createUser(crypto.randomUUID(), email, passwordHash);
+      res.status(201).json({ id: user.id, email: user.email, createdAt: user.createdAt });
     } catch (err) { next(err); }
   });
 

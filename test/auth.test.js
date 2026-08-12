@@ -142,3 +142,53 @@ test('admin export endpoints require auth', async () => {
 
   server.close();
 });
+
+test('admin can add and list other users without losing their own session', async () => {
+  const { server, base } = await startServer();
+
+  let res = await fetch(`${base}/api/admin/users`);
+  assert.equal(res.status, 401);
+
+  const reg = await fetch(`${base}/api/auth/register`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'boss@example.com', password: 'longenough123' })
+  });
+  const cookie = getCookie(reg);
+
+  res = await fetch(`${base}/api/admin/users`, { headers: { Cookie: cookie } });
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).length, 1);
+
+  res = await fetch(`${base}/api/admin/users`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie },
+    body: JSON.stringify({ email: 'newstaff@example.com', password: 'longenough123' })
+  });
+  assert.equal(res.status, 201);
+  assert.equal(getCookie(res), null); // must NOT switch the caller's session to the new user
+
+  // the admin's own session cookie still works
+  res = await fetch(`${base}/api/auth/me`, { headers: { Cookie: cookie } });
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).email, 'boss@example.com');
+
+  res = await fetch(`${base}/api/admin/users`, { headers: { Cookie: cookie } });
+  const users = await res.json();
+  assert.equal(users.length, 2);
+  assert.ok(users.every(u => !('passwordHash' in u)));
+
+  // duplicate email still rejected
+  res = await fetch(`${base}/api/admin/users`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie },
+    body: JSON.stringify({ email: 'newstaff@example.com', password: 'longenough123' })
+  });
+  assert.equal(res.status, 409);
+
+  // the newly-created user can log in with the password the admin set
+  res = await fetch(`${base}/api/auth/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'newstaff@example.com', password: 'longenough123' })
+  });
+  assert.equal(res.status, 200);
+
+  server.close();
+});

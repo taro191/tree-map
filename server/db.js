@@ -97,7 +97,7 @@ function createPgStore(connectionString) {
   }
 
   function userRowToObj(row) {
-    return { id: row.id, email: row.email, passwordHash: row.password_hash };
+    return { id: row.id, email: row.email, passwordHash: row.password_hash, createdAt: row.created_at };
   }
 
   async function createUser(id, email, passwordHash) {
@@ -118,9 +118,14 @@ function createPgStore(connectionString) {
     return rows[0] ? userRowToObj(rows[0]) : null;
   }
 
+  async function listUsers() {
+    const { rows } = await pool.query('SELECT * FROM users ORDER BY created_at ASC');
+    return rows.map(userRowToObj);
+  }
+
   return {
     pool, initSchema, listPlots, upsertPlot, deletePlot, listTrees, upsertTree, deleteTree,
-    createUser, findUserByEmail, findUserById
+    createUser, findUserByEmail, findUserById, listUsers
   };
 }
 

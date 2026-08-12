@@ -30,7 +30,7 @@ function createMemoryStore() {
       trees.delete(id);
     },
     async createUser(id, email, passwordHash) {
-      const user = { id, email, passwordHash };
+      const user = { id, email, passwordHash, createdAt: new Date().toISOString() };
       users.set(id, user);
       return user;
     },
@@ -39,6 +39,9 @@ function createMemoryStore() {
     },
     async findUserById(id) {
       return users.get(id) || null;
+    },
+    async listUsers() {
+      return [...users.values()];
     }
   };
 }

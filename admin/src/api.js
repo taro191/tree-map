@@ -28,5 +28,8 @@ export const api = {
 
   listTrees: () => request('/api/trees'),
   saveTree: (tree) => request(`/api/trees/${encodeURIComponent(tree.id)}`, { method: 'PUT', body: JSON.stringify(tree) }),
-  deleteTree: (id) => request(`/api/trees/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  deleteTree: (id) => request(`/api/trees/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  listUsers: () => request('/api/admin/users'),
+  addUser: (email, password) => request('/api/admin/users', { method: 'POST', body: JSON.stringify({ email, password }) })
 };

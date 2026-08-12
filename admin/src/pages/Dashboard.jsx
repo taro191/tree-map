@@ -4,6 +4,7 @@ import { api } from '../api';
 import MapView from '../components/MapView';
 import PlotsTable from '../components/PlotsTable';
 import TreesTable from '../components/TreesTable';
+import UsersPanel from '../components/UsersPanel';
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
@@ -100,6 +101,10 @@ export default function Dashboard() {
                 </label>
               </div>
               <TreesTable trees={visibleTrees} plotsById={plotsById} onSave={saveTree} onDelete={deleteTree} />
+            </section>
+
+            <section>
+              <UsersPanel />
             </section>
           </>
         )}
