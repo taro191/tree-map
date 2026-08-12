@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 
 export default function Login() {
@@ -50,9 +50,6 @@ export default function Login() {
         >
           {busy ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
         </button>
-        <p className="text-center text-sm text-slate-500">
-          ยังไม่มีบัญชี? <Link to="/register" className="font-semibold text-emerald-700">สมัครสมาชิก</Link>
-        </p>
       </form>
     </div>
   );
