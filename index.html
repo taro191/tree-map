@@ -147,6 +147,9 @@
   .plot-photo-preview{width:100%;max-height:420px;object-fit:contain;border-radius:10px;display:block;background:var(--tag);}
   .plot-photo-placeholder{background:var(--tag);border-radius:10px;padding:20px 10px;text-align:center;font-size:12.5px;color:var(--muted);}
 
+  #plot-detail-map{height:260px;border-radius:10px;overflow:hidden;margin-top:14px;background:var(--tag);}
+  #plot-detail-map .empty-hint{padding:0;}
+
   /* Map */
   .tree-pin{
     background:var(--bark);color:white;border-radius:50% 50% 50% 0;
@@ -327,6 +330,7 @@
       </div>
       <div id="plot-detail-info"></div>
       <div id="plot-detail"></div>
+      <div id="plot-detail-map"></div>
     </div>
 
     <div class="panel" id="view-trees">
@@ -370,6 +374,7 @@ let addMode = false;
 let pendingLatLng = null;
 let editingColor = COLORS[0];
 let map, markerLayer, boundaryLayer, boundaryPreviewLayer;
+let plotDetailMap = null;
 
 let creatingPlot = null;   // {name, ownerName, ownerContact, color, points:[]}
 let boundaryMode = false;
@@ -874,6 +879,46 @@ function renderBoundaries(){
   });
 }
 
+function renderPlotDetailMap(){
+  const container = document.getElementById('plot-detail-map');
+  if(!container) return;
+  if(plotDetailMap){ plotDetailMap.remove(); plotDetailMap = null; }
+  container.innerHTML = '';
+
+  const plot = plots.find(p=>p.id===selectedPlotId);
+  if(!plot || !plot.boundary || plot.boundary.length<3){
+    container.innerHTML = '<div class="empty-hint">ยังไม่มีขอบเขตแปลงที่บันทึกไว้</div>';
+    return;
+  }
+
+  plotDetailMap = L.map(container, {
+    zoomControl:false, dragging:false, scrollWheelZoom:false,
+    doubleClickZoom:false, boxZoom:false, keyboard:false, touchZoom:false
+  });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
+  }).addTo(plotDetailMap);
+
+  const latlngs = plot.boundary.map(pt=>[pt.lat,pt.lng]);
+  L.polygon(latlngs, {color:plot.color, weight:3, fillColor:plot.color, fillOpacity:0.15}).addTo(plotDetailMap);
+
+  trees.filter(t=>t.plotId===plot.id).forEach(t=>{
+    const icon = L.divIcon({
+      className:'',
+      html:`<div class="tree-pin" style="background:${plot.color}"><span>${t.seq}</span></div>`,
+      iconSize:[26,26], iconAnchor:[13,26]
+    });
+    L.marker([t.lat,t.lng], {icon}).addTo(plotDetailMap);
+  });
+
+  const bounds = L.latLngBounds(latlngs);
+  setTimeout(()=>{
+    if(!plotDetailMap) return;
+    plotDetailMap.invalidateSize();
+    plotDetailMap.fitBounds(bounds.pad(0.15));
+  }, 50);
+}
+
 function fitToPlot(){
   if(!selectedPlotId) return;
   const list = trees.filter(t=>t.plotId===selectedPlotId);
@@ -885,6 +930,7 @@ function fitToPlot(){
 function setView(view){
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id==='view-'+view));
   setSheetExpanded(true);
+  if(view === 'plot-detail') renderPlotDetailMap();
 }
 
 function renderAll(){
