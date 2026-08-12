@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.17</title>
+<title>ระบบแผนที่ต้นไม้ v1.18</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -118,6 +118,12 @@
     background:var(--tag);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:13px;
   }
   .active-plot-banner b{color:var(--primary-dark);}
+  #btn-edit-plot-detail{
+    width:28px;height:28px;border-radius:8px;border:none;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-size:13px;
+    color:white;background:var(--bark);
+  }
+  #btn-edit-plot-detail:hover{background:#8f5127;}
   .mode-toggle{
     display:flex;align-items:center;justify-content:space-between;
     background:var(--tag);border-radius:10px;padding:10px 12px;margin-bottom:14px;
@@ -278,13 +284,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.17</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.18</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.17</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.18</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -324,6 +330,7 @@
             <input id="in-plot-postcode" placeholder="กรอกรหัสไปรษณีย์ (5 หลัก) เพื่อค้นหาที่อยู่" inputmode="numeric" maxlength="5" style="margin-bottom:6px;">
             <div id="plot-address-status" style="font-size:11.5px;color:var(--muted);margin-bottom:6px;"></div>
             <select id="in-plot-address-select" style="display:none;margin-bottom:8px;"></select>
+            <input id="in-plot-subdistrict" placeholder="ตำบล/แขวง" style="margin-bottom:6px;">
             <div style="display:flex;gap:8px;">
               <input id="in-plot-district" placeholder="อำเภอ" style="width:auto;flex:1;">
               <input id="in-plot-province" placeholder="จังหวัด" style="width:auto;flex:1;">
@@ -1083,22 +1090,119 @@ function renderPlotList(){
   });
 }
 
+let editingPlotDetail = false;
+
 function renderPlotDetailInfo(){
   const el = document.getElementById('plot-detail-info');
   const plot = plots.find(p=>p.id===selectedPlotId);
   if(!plot){ el.innerHTML = ''; return; }
+  if(editingPlotDetail){ renderPlotDetailEditForm(el, plot); return; }
   const count = trees.filter(t=>t.plotId===plot.id).length;
   const areaLine = areaText(plot);
   const addrLine = addressText(plot);
   el.innerHTML = `
     <div class="active-plot-banner">
-      <b>${escapeHtml(plot.name)}</b> · เจ้าของ: ${escapeHtml(plot.ownerName||'-')}${plot.ownerContact? ' · '+escapeHtml(plot.ownerContact):''}
-      ${plot.docTitle ? `<br>เอกสารสิทธิ์: ${escapeHtml(plot.docTitle)}` : ''}
-      ${areaLine ? `<br>เนื้อที่: ${escapeHtml(areaLine)}` : ''}
-      ${addrLine ? `<br>ที่ตั้ง: ${escapeHtml(addrLine)}` : ''}
-      <br>🌳 ${count} ต้น
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div>
+          <b>${escapeHtml(plot.name)}</b> · เจ้าของ: ${escapeHtml(plot.ownerName||'-')}${plot.ownerContact? ' · '+escapeHtml(plot.ownerContact):''}
+          ${plot.docTitle ? `<br>เอกสารสิทธิ์: ${escapeHtml(plot.docTitle)}` : ''}
+          ${areaLine ? `<br>เนื้อที่: ${escapeHtml(areaLine)}` : ''}
+          ${addrLine ? `<br>ที่ตั้ง: ${escapeHtml(addrLine)}` : ''}
+          <br>🌳 ${count} ต้น
+        </div>
+        <button class="edit-btn" id="btn-edit-plot-detail" style="flex-shrink:0;">✏️</button>
+      </div>
     </div>
   `;
+  document.getElementById('btn-edit-plot-detail').onclick = ()=> startEditPlotDetail();
+}
+
+async function startEditPlotDetail(){
+  const user = await checkFieldSession();
+  if(user){
+    identifiedUser = user;
+    updateAuthMenuLabel();
+    editingPlotDetail = true;
+    renderPlotDetailInfo();
+  } else {
+    openIdentifyModal('edit-plot');
+  }
+}
+
+function renderPlotDetailEditForm(el, plot){
+  el.innerHTML = `
+    <div class="active-plot-banner">แก้ไขข้อมูลแปลง: <b>${escapeHtml(plot.name)}</b></div>
+    <div class="field">
+      <label>ชื่อแปลง</label>
+      <input id="edit-plot-name" value="${escapeAttr(plot.name||'')}">
+    </div>
+    <div class="field">
+      <label>ชื่อเจ้าของแปลง (ตามผู้ใช้ที่ระบุตัวตน แก้ไขไม่ได้)</label>
+      <input id="edit-plot-owner-name" value="${escapeAttr((identifiedUser&&identifiedUser.name)||'')}" readonly>
+    </div>
+    <div class="field">
+      <label>เบอร์ติดต่อ (ตามผู้ใช้ที่ระบุตัวตน แก้ไขไม่ได้)</label>
+      <input id="edit-plot-owner-contact" value="${escapeAttr((identifiedUser&&identifiedUser.phone)||'')}" readonly>
+    </div>
+    <div class="field">
+      <label>ประเภท/เลขที่เอกสารสิทธิ์ (ถ้ามี)</label>
+      <input id="edit-plot-doc" value="${escapeAttr(plot.docTitle||'')}" placeholder="เช่น สปก 4-01ข">
+    </div>
+    <div class="field">
+      <label>เนื้อที่ (ไม่เกิน 30 ไร่ 0 งาน 0 ตารางวา)</label>
+      <div style="display:flex;gap:8px;">
+        <input id="edit-plot-rai" type="number" min="0" max="30" value="${escapeAttr(plot.areaRai||'')}" placeholder="ไร่" style="width:auto;flex:0 1 80px;">
+        <input id="edit-plot-ngan" type="number" min="0" max="3" value="${escapeAttr(plot.areaNgan||'')}" placeholder="งาน" style="width:auto;flex:0 1 80px;">
+        <input id="edit-plot-wa" type="number" min="0" max="99" value="${escapeAttr(plot.areaWa||'')}" placeholder="ตร.วา" style="width:auto;flex:0 1 80px;">
+      </div>
+    </div>
+    <div class="field">
+      <label>ที่ตั้งแปลง</label>
+      <input id="edit-plot-postcode" value="${escapeAttr(plot.postcode||'')}" placeholder="กรอกรหัสไปรษณีย์ (5 หลัก) เพื่อค้นหาที่อยู่" inputmode="numeric" maxlength="5" style="margin-bottom:6px;">
+      <div id="edit-plot-address-status" style="font-size:11.5px;color:var(--muted);margin-bottom:6px;"></div>
+      <select id="edit-plot-address-select" style="display:none;margin-bottom:8px;"></select>
+      <input id="edit-plot-subdistrict" value="${escapeAttr(plot.subdistrict||'')}" placeholder="ตำบล/แขวง" style="margin-bottom:6px;">
+      <div style="display:flex;gap:8px;">
+        <input id="edit-plot-district" value="${escapeAttr(plot.district||'')}" placeholder="อำเภอ" style="width:auto;flex:1;">
+        <input id="edit-plot-province" value="${escapeAttr(plot.province||'')}" placeholder="จังหวัด" style="width:auto;flex:1;">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn" id="btn-save-plot-detail" style="flex:1;">บันทึก</button>
+      <button class="btn secondary" id="btn-cancel-plot-detail" style="flex:1;">ยกเลิก</button>
+    </div>
+  `;
+  document.getElementById('edit-plot-postcode').addEventListener('focus', ()=> loadThaiZipIndex().catch(()=>{}));
+  document.getElementById('edit-plot-postcode').addEventListener('input', ()=> handlePostcodeInputFor(EDIT_PLOT_ADDR_IDS));
+  document.getElementById('btn-cancel-plot-detail').onclick = ()=>{
+    editingPlotDetail = false;
+    renderPlotDetailInfo();
+  };
+  document.getElementById('btn-save-plot-detail').onclick = async ()=>{
+    const name = document.getElementById('edit-plot-name').value.trim();
+    if(!name){ alert('กรุณากรอกชื่อแปลง'); return; }
+    const areaRai = document.getElementById('edit-plot-rai').value.trim();
+    if(areaRai && Number(areaRai) > 30){ alert('เนื้อที่ไร่ ใส่ได้ไม่เกิน 30 ไร่'); return; }
+    const updated = {
+      ...plot,
+      name,
+      ownerName: (identifiedUser && identifiedUser.name) || plot.ownerName,
+      ownerContact: (identifiedUser && identifiedUser.phone) || plot.ownerContact,
+      docTitle: document.getElementById('edit-plot-doc').value.trim(),
+      areaRai,
+      areaNgan: document.getElementById('edit-plot-ngan').value.trim(),
+      areaWa: document.getElementById('edit-plot-wa').value.trim(),
+      subdistrict: document.getElementById('edit-plot-subdistrict').value.trim(),
+      district: document.getElementById('edit-plot-district').value.trim(),
+      province: document.getElementById('edit-plot-province').value.trim(),
+      postcode: document.getElementById('edit-plot-postcode').value.trim()
+    };
+    try{ await apiSavePlot(updated); }catch(err){ alert(err.message); return; }
+    const idx = plots.findIndex(p=>p.id===plot.id);
+    if(idx>=0) plots[idx] = updated;
+    editingPlotDetail = false;
+    renderAll();
+  };
 }
 
 function renderPlotDetail(){
@@ -1361,9 +1465,11 @@ function setView(view){
     pickingPositionFor = null;
     document.getElementById('crosshair-banner').classList.remove('show');
   }
+  editingPlotDetail = false;
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id==='view-'+view));
   document.getElementById('sidebar-subtitle-view').textContent = VIEW_TITLES[view] || view;
   setSheetExpanded(true);
+  if(view === 'plot-detail') renderPlotDetailInfo();
   if(view === 'plot-detail') renderPlotDetailMap();
   renderMarkers();
 }
@@ -1391,6 +1497,7 @@ function areaText(plot){
 }
 function addressText(plot){
   const parts = [];
+  if(plot.subdistrict) parts.push('ตำบล'+plot.subdistrict);
   if(plot.district) parts.push('อำเภอ'+plot.district);
   if(plot.province) parts.push('จังหวัด'+plot.province);
   if(plot.postcode) parts.push(plot.postcode);
@@ -1416,13 +1523,16 @@ function loadThaiZipIndex(){
       const d = districtById.get(s.district_id);
       if(!d) return;
       const province = provinceById.get(d.provinceId) || '';
+      const isBangkokStyle = d.name.startsWith('เขต');
       const districtBare = d.name.replace(/^เขต/, '').replace(/^อำเภอ/, '');
-      const districtDisplay = d.name.startsWith('เขต') ? d.name : 'อำเภอ'+d.name;
+      const districtDisplay = isBangkokStyle ? d.name : 'อำเภอ'+d.name;
+      const subdistrict = (s.name_th || '').replace(/^ตำบล/, '').replace(/^แขวง/, '');
+      const subdistrictDisplay = (isBangkokStyle ? 'แขวง' : 'ตำบล') + subdistrict;
       const zip = String(s.zip_code);
       if(!idx.has(zip)) idx.set(zip, []);
       const arr = idx.get(zip);
-      if(!arr.some(x=>x.districtBare===districtBare && x.province===province)){
-        arr.push({districtBare, districtDisplay, province});
+      if(!arr.some(x=>x.subdistrict===subdistrict && x.districtBare===districtBare && x.province===province)){
+        arr.push({subdistrict, subdistrictDisplay, districtBare, districtDisplay, province});
       }
     });
     thaiZipIndex = idx;
@@ -1434,38 +1544,45 @@ function loadThaiZipIndex(){
   return thaiZipLoading;
 }
 
-async function handlePostcodeInput(){
-  const pc = document.getElementById('in-plot-postcode').value.trim();
-  const statusEl = document.getElementById('plot-address-status');
-  const selectEl = document.getElementById('in-plot-address-select');
+const ADD_PLOT_ADDR_IDS = {postcode:'in-plot-postcode', status:'plot-address-status', select:'in-plot-address-select', subdistrict:'in-plot-subdistrict', district:'in-plot-district', province:'in-plot-province'};
+const EDIT_PLOT_ADDR_IDS = {postcode:'edit-plot-postcode', status:'edit-plot-address-status', select:'edit-plot-address-select', subdistrict:'edit-plot-subdistrict', district:'edit-plot-district', province:'edit-plot-province'};
+
+function handlePostcodeInput(){ return handlePostcodeInputFor(ADD_PLOT_ADDR_IDS); }
+
+async function handlePostcodeInputFor(ids){
+  const pc = document.getElementById(ids.postcode).value.trim();
+  const statusEl = document.getElementById(ids.status);
+  const selectEl = document.getElementById(ids.select);
   selectEl.style.display = 'none';
   selectEl.innerHTML = '';
   if(!/^\d{5}$/.test(pc)){ statusEl.textContent=''; return; }
   statusEl.textContent = 'กำลังค้นหาที่อยู่...';
   try{
     const idx = await loadThaiZipIndex();
-    if(document.getElementById('in-plot-postcode').value.trim() !== pc) return; // ผู้ใช้พิมพ์ต่อระหว่างรอโหลด
+    if(document.getElementById(ids.postcode).value.trim() !== pc) return; // ผู้ใช้พิมพ์ต่อระหว่างรอโหลด
     const matches = idx.get(pc) || [];
     if(matches.length === 0){
-      statusEl.textContent = 'ไม่พบข้อมูลที่อยู่จากรหัสไปรษณีย์นี้ กรุณากรอกอำเภอ/จังหวัดเอง';
+      statusEl.textContent = 'ไม่พบข้อมูลที่อยู่จากรหัสไปรษณีย์นี้ กรุณากรอกตำบล/อำเภอ/จังหวัดเอง';
     } else if(matches.length === 1){
-      document.getElementById('in-plot-district').value = matches[0].districtBare;
-      document.getElementById('in-plot-province').value = matches[0].province;
-      statusEl.textContent = `พบที่อยู่: ${matches[0].districtDisplay} ${matches[0].province}`;
+      document.getElementById(ids.subdistrict).value = matches[0].subdistrict;
+      document.getElementById(ids.district).value = matches[0].districtBare;
+      document.getElementById(ids.province).value = matches[0].province;
+      statusEl.textContent = `พบที่อยู่: ${matches[0].subdistrictDisplay} ${matches[0].districtDisplay} ${matches[0].province}`;
     } else {
       statusEl.textContent = `พบ ${matches.length} ที่อยู่ที่ตรงกับรหัสนี้ กรุณาเลือก:`;
       selectEl.style.display = 'block';
       selectEl.innerHTML = '<option value="">-- เลือกที่อยู่ --</option>' +
-        matches.map((m,i)=>`<option value="${i}">${escapeHtml(m.districtDisplay)} ${escapeHtml(m.province)}</option>`).join('');
+        matches.map((m,i)=>`<option value="${i}">${escapeHtml(m.subdistrictDisplay)} ${escapeHtml(m.districtDisplay)} ${escapeHtml(m.province)}</option>`).join('');
       selectEl.onchange = ()=>{
         const m = matches[selectEl.value];
         if(!m) return;
-        document.getElementById('in-plot-district').value = m.districtBare;
-        document.getElementById('in-plot-province').value = m.province;
+        document.getElementById(ids.subdistrict).value = m.subdistrict;
+        document.getElementById(ids.district).value = m.districtBare;
+        document.getElementById(ids.province).value = m.province;
       };
     }
   }catch(err){
-    statusEl.textContent = 'โหลดข้อมูลที่อยู่ไม่สำเร็จ (ต้องใช้อินเทอร์เน็ต) กรุณากรอกอำเภอ/จังหวัดเอง';
+    statusEl.textContent = 'โหลดข้อมูลที่อยู่ไม่สำเร็จ (ต้องใช้อินเทอร์เน็ต) กรุณากรอกที่อยู่เอง';
   }
 }
 
@@ -1664,7 +1781,12 @@ document.getElementById('btn-identify-login').onclick = async ()=>{
       prefillOwnerFromIdentity();
       updateAuthMenuLabel();
       document.getElementById('identify-modal-overlay').classList.remove('show');
-      if(identifyModalPurpose === 'add-plot') setView('plot-form');
+      if(identifyModalPurpose === 'add-plot'){
+        setView('plot-form');
+      } else if(identifyModalPurpose === 'edit-plot'){
+        editingPlotDetail = true;
+        renderPlotDetailInfo();
+      }
     } else {
       showIdentifyError('ไม่พบข้อมูล หรือวันเกิดไม่ตรง ถ้ายังไม่เคยลงทะเบียนกดปุ่มด้านล่าง');
     }
@@ -1692,7 +1814,12 @@ document.getElementById('btn-identify-register').onclick = async ()=>{
       prefillOwnerFromIdentity();
       updateAuthMenuLabel();
       document.getElementById('identify-modal-overlay').classList.remove('show');
-      if(identifyModalPurpose === 'add-plot') setView('plot-form');
+      if(identifyModalPurpose === 'add-plot'){
+        setView('plot-form');
+      } else if(identifyModalPurpose === 'edit-plot'){
+        editingPlotDetail = true;
+        renderPlotDetailInfo();
+      }
     } else {
       const data = await res.json().catch(()=>({}));
       showIdentifyError(data.error || 'ลงทะเบียนไม่สำเร็จ');
@@ -1730,6 +1857,7 @@ document.getElementById('btn-add-plot').onclick = ()=>{
   const areaRai = document.getElementById('in-plot-rai').value.trim();
   const areaNgan = document.getElementById('in-plot-ngan').value.trim();
   const areaWa = document.getElementById('in-plot-wa').value.trim();
+  const subdistrict = document.getElementById('in-plot-subdistrict').value.trim();
   const district = document.getElementById('in-plot-district').value.trim();
   const province = document.getElementById('in-plot-province').value.trim();
   const postcode = document.getElementById('in-plot-postcode').value.trim();
@@ -1737,7 +1865,7 @@ document.getElementById('btn-add-plot').onclick = ()=>{
   if(areaRai && Number(areaRai) > 30){ alert('เนื้อที่ไร่ ใส่ได้ไม่เกิน 30 ไร่'); return; }
   creatingPlot = {
     name, ownerName, ownerContact, docTitle, areaRai, areaNgan, areaWa,
-    district, province, postcode, color: editingColor, points: []
+    subdistrict, district, province, postcode, color: editingColor, points: []
   };
   boundaryMode = true;
   document.getElementById('plot-step-info').style.display = 'none';
@@ -1785,7 +1913,8 @@ document.getElementById('btn-save-boundary').onclick = async ()=>{
     id: uid(), name: creatingPlot.name, ownerName: creatingPlot.ownerName,
     ownerContact: creatingPlot.ownerContact, docTitle: creatingPlot.docTitle,
     areaRai: creatingPlot.areaRai, areaNgan: creatingPlot.areaNgan, areaWa: creatingPlot.areaWa,
-    district: creatingPlot.district, province: creatingPlot.province, postcode: creatingPlot.postcode,
+    subdistrict: creatingPlot.subdistrict, district: creatingPlot.district,
+    province: creatingPlot.province, postcode: creatingPlot.postcode,
     photo: null, docPhoto: null, color: creatingPlot.color,
     boundary: creatingPlot.points.slice()
   };
@@ -1798,6 +1927,7 @@ document.getElementById('btn-save-boundary').onclick = async ()=>{
   document.getElementById('in-plot-rai').value='';
   document.getElementById('in-plot-ngan').value='';
   document.getElementById('in-plot-wa').value='';
+  document.getElementById('in-plot-subdistrict').value='';
   document.getElementById('in-plot-district').value='';
   document.getElementById('in-plot-province').value='';
   document.getElementById('in-plot-postcode').value='';
