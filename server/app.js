@@ -251,6 +251,43 @@ function createApp(store) {
     } catch (err) { next(err); }
   });
 
+  app.patch('/api/admin/users/:id', requireAdmin, async (req, res, next) => {
+    try {
+      const target = await store.findUserById(req.params.id);
+      if (!target) return res.status(404).json({ error: 'user not found' });
+      const name = (req.body && req.body.name || '').trim() || null;
+      const email = (req.body && req.body.email || '').trim().toLowerCase() || null;
+      const phone = normalizePhone(req.body && req.body.phone) || null;
+      if (!email && !phone) return res.status(400).json({ error: 'must provide an email or phone number' });
+      if (email && !EMAIL_RE.test(email)) return res.status(400).json({ error: 'invalid email' });
+      if (phone && !PHONE_RE.test(phone)) return res.status(400).json({ error: 'invalid phone number (must be 10 digits starting with 0)' });
+      if (email) {
+        const existing = await store.findUserByEmail(email);
+        if (existing && existing.id !== target.id) return res.status(409).json({ error: 'an account with this email already exists' });
+      }
+      if (phone) {
+        const existing = await store.findUserByPhone(phone);
+        if (existing && existing.id !== target.id) return res.status(409).json({ error: 'an account with this phone number already exists' });
+      }
+      const user = await store.updateUserProfile(req.params.id, { name, email, phone });
+      res.json({
+        id: user.id, email: user.email, phone: user.phone, name: user.name,
+        role: user.role, managedCommunityEnterpriseId: user.managedCommunityEnterpriseId
+      });
+    } catch (err) { next(err); }
+  });
+
+  app.patch('/api/admin/users/:id/password', requireAdmin, async (req, res, next) => {
+    try {
+      const password = (req.body && req.body.password) || '';
+      if (password.length < 8) return res.status(400).json({ error: 'password must be at least 8 characters' });
+      const passwordHash = await hashPassword(password);
+      const user = await store.updateUserPassword(req.params.id, passwordHash);
+      if (!user) return res.status(404).json({ error: 'user not found' });
+      res.status(204).end();
+    } catch (err) { next(err); }
+  });
+
   function isOwnCommunityEnterprise(req, id) {
     return req.user.role === 'admin' || req.user.managedCommunityEnterpriseId === id;
   }

@@ -168,6 +168,22 @@ function createPgStore(connectionString) {
     return rows[0] ? userRowToObj(rows[0]) : null;
   }
 
+  async function updateUserProfile(id, { name, email, phone }) {
+    const { rows } = await pool.query(
+      'UPDATE users SET name = $2, email = $3, phone = $4 WHERE id = $1 RETURNING *',
+      [id, name || null, email || null, phone || null]
+    );
+    return rows[0] ? userRowToObj(rows[0]) : null;
+  }
+
+  async function updateUserPassword(id, passwordHash) {
+    const { rows } = await pool.query(
+      'UPDATE users SET password_hash = $2 WHERE id = $1 RETURNING *',
+      [id, passwordHash]
+    );
+    return rows[0] ? userRowToObj(rows[0]) : null;
+  }
+
   async function findUserByEmail(email) {
     const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     return rows[0] ? userRowToObj(rows[0]) : null;
@@ -272,7 +288,8 @@ function createPgStore(connectionString) {
   return {
     pool, initSchema, listPlots, upsertPlot, deletePlot, findPlotById, updatePlotStatus, bumpPlotToTreeSurvey,
     listTrees, upsertTree, deleteTree, findTreeById,
-    createUser, updateUserRole, findUserByEmail, findUserByPhone, findUserByNationalId, findUserById, listUsers,
+    createUser, updateUserRole, updateUserProfile, updateUserPassword,
+    findUserByEmail, findUserByPhone, findUserByNationalId, findUserById, listUsers,
     listCommunityEnterprises, upsertCommunityEnterprise, deleteCommunityEnterprise,
     countCommunityEnterpriseMembers, listCommunityEnterpriseMembers,
     addCommunityEnterpriseMember, removeCommunityEnterpriseMember

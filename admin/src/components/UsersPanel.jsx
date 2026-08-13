@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import Card from './Card';
+import AddUserModal from './AddUserModal';
+import EditUserModal from './EditUserModal';
+import ChangePasswordModal from './ChangePasswordModal';
 
 const ROLE_LABELS = {
   user: 'ผู้ใช้ทั่วไป',
@@ -11,14 +14,11 @@ const ROLE_LABELS = {
 export default function UsersPanel() {
   const [users, setUsers] = useState([]);
   const [entities, setEntities] = useState([]);
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
+  const [filterCe, setFilterCe] = useState('');
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [roleDrafts, setRoleDrafts] = useState({});
-  const [roleBusyId, setRoleBusyId] = useState(null);
-  const [roleError, setRoleError] = useState('');
+  const [showAdd, setShowAdd] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [passwordUser, setPasswordUser] = useState(null);
 
   async function reload() {
     try {
@@ -32,128 +32,130 @@ export default function UsersPanel() {
 
   useEffect(() => { reload(); }, []);
 
-  function draftFor(u) {
-    return roleDrafts[u.id] || { role: u.role, managedCommunityEnterpriseId: u.managedCommunityEnterpriseId || '' };
+  // A user is "affiliated" with a community enterprise either by being a plain member
+  // (community_enterprise_members) or by being the enterprise_admin who manages it.
+  const affiliatedEntityIdsById = useMemo(() => {
+    const map = new Map();
+    function add(userId, entityId) {
+      const set = map.get(userId) || new Set();
+      set.add(entityId);
+      map.set(userId, set);
+    }
+    entities.forEach(e => {
+      (e.members || []).forEach(m => add(m.id, e.id));
+    });
+    users.forEach(u => {
+      if (u.role === 'enterprise_admin' && u.managedCommunityEnterpriseId) add(u.id, u.managedCommunityEnterpriseId);
+    });
+    return map;
+  }, [entities, users]);
+
+  const entityNameById = useMemo(() => new Map(entities.map(e => [e.id, e.name])), [entities]);
+
+  const filteredUsers = useMemo(() => {
+    if (!filterCe) return users;
+    return users.filter(u => (affiliatedEntityIdsById.get(u.id) || new Set()).has(filterCe));
+  }, [users, affiliatedEntityIdsById, filterCe]);
+
+  async function addUser(data) {
+    await api.addUser(data.email, data.phone, data.password, data.role, data.managedCommunityEnterpriseId);
+    await reload();
   }
 
-  function setDraft(u, patch) {
-    setRoleDrafts(prev => ({ ...prev, [u.id]: { ...draftFor(u), ...patch } }));
+  async function saveEdit(data) {
+    await api.updateUserProfile(editingUser.id, { name: data.name, email: data.email, phone: data.phone });
+    const roleChanged = data.role !== editingUser.role
+      || (data.managedCommunityEnterpriseId || null) !== (editingUser.managedCommunityEnterpriseId || null);
+    if (roleChanged) {
+      await api.updateUserRole(editingUser.id, data.role, data.managedCommunityEnterpriseId);
+    }
+    await reload();
   }
 
-  async function applyRole(u) {
-    const draft = draftFor(u);
-    if (draft.role === 'enterprise_admin' && !draft.managedCommunityEnterpriseId) {
-      setRoleError('กรุณาเลือกวิสาหกิจชุมชนที่จะดูแล');
-      return;
-    }
-    setRoleBusyId(u.id);
-    setRoleError('');
-    try {
-      const updated = await api.updateUserRole(u.id, draft.role, draft.managedCommunityEnterpriseId || null);
-      setUsers(prev => prev.map(x => x.id === updated.id ? { ...x, ...updated } : x));
-      setRoleDrafts(prev => { const next = { ...prev }; delete next[u.id]; return next; });
-    } catch (err) {
-      setRoleError(err.message);
-    } finally {
-      setRoleBusyId(null);
-    }
-  }
-
-  async function onSubmit(e) {
-    e.preventDefault();
-    setError('');
-    if (!email.trim() && !phone.trim()) { setError('กรอกอีเมลหรือเบอร์โทรศัพท์อย่างน้อย 1 อย่าง'); return; }
-    setBusy(true);
-    try {
-      await api.addUser(email.trim() || null, phone.trim() || null, password);
-      setEmail('');
-      setPhone('');
-      setPassword('');
-      await reload();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
+  async function savePassword(password) {
+    await api.updateUserPassword(passwordUser.id, password);
   }
 
   return (
-    <Card title={`ผู้ใช้ระบบ admin (${users.length})`}>
-      {error && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
-      <form onSubmit={onSubmit} className="mb-4 flex flex-wrap items-end gap-2">
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-500">อีเมลผู้ใช้ใหม่</label>
-          <input
-            type="email" value={email} onChange={e => setEmail(e.target.value)}
-            className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm focus:border-emerald-600 focus:outline-none"
-          />
+    <Card
+      title={`ผู้ใช้ระบบ admin (${filteredUsers.length})`}
+      noPadding
+      headerRight={
+        <div className="flex items-center gap-2">
+          <select
+            value={filterCe} onChange={e => setFilterCe(e.target.value)}
+            className="rounded border border-gray-300 px-2 py-1 text-xs font-normal text-slate-600"
+          >
+            <option value="">ทุกวิสาหกิจชุมชน</option>
+            {entities.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </select>
+          <button
+            onClick={() => setShowAdd(true)}
+            className="rounded bg-emerald-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-900"
+          >
+            + เพิ่มผู้ใช้ใหม่
+          </button>
         </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-500">เบอร์โทรศัพท์</label>
-          <input
-            type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-            placeholder="0812345678"
-            className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm focus:border-emerald-600 focus:outline-none"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-500">รหัสผ่าน (อย่างน้อย 8 ตัวอักษร)</label>
-          <input
-            type="password" required value={password} onChange={e => setPassword(e.target.value)}
-            className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm focus:border-emerald-600 focus:outline-none"
-          />
-        </div>
-        <button
-          type="submit" disabled={busy}
-          className="rounded-lg bg-emerald-800 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-900 disabled:opacity-50"
-        >
-          {busy ? 'กำลังเพิ่ม...' : '+ เพิ่มผู้ใช้'}
-        </button>
-      </form>
-      {roleError && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{roleError}</div>}
-      <ul className="divide-y divide-stone-100 text-sm">
-        {users.map(u => {
-          const draft = draftFor(u);
-          const dirty = draft.role !== u.role || (draft.managedCommunityEnterpriseId || null) !== (u.managedCommunityEnterpriseId || null);
-          return (
-            <li key={u.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-              <div>
-                <div>{[u.name, u.email, u.phone].filter(Boolean).join(' · ')}</div>
-                <div className="text-xs text-slate-400">{u.createdAt ? new Date(u.createdAt).toLocaleDateString('th-TH') : ''}</div>
-              </div>
-              <div className="flex items-center gap-2">
-                <select
-                  value={draft.role}
-                  onChange={e => setDraft(u, { role: e.target.value, managedCommunityEnterpriseId: e.target.value === 'enterprise_admin' ? draft.managedCommunityEnterpriseId : '' })}
-                  className="rounded border border-stone-300 px-2 py-1 text-xs"
-                >
-                  {Object.entries(ROLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
-                {draft.role === 'enterprise_admin' && (
-                  <select
-                    value={draft.managedCommunityEnterpriseId}
-                    onChange={e => setDraft(u, { managedCommunityEnterpriseId: e.target.value })}
-                    className="rounded border border-stone-300 px-2 py-1 text-xs"
-                  >
-                    <option value="">เลือกกลุ่ม...</option>
-                    {entities.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                  </select>
-                )}
-                {dirty && (
-                  <button
-                    disabled={roleBusyId === u.id}
-                    onClick={() => applyRole(u)}
-                    className="rounded bg-emerald-800 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
-                  >
-                    {roleBusyId === u.id ? 'กำลังบันทึก...' : 'บันทึกสิทธิ์'}
-                  </button>
-                )}
-              </div>
-            </li>
-          );
-        })}
-        {users.length === 0 && <li className="py-1.5 text-slate-400">ยังไม่มีผู้ใช้</li>}
-      </ul>
+      }
+    >
+      {error && <div className="m-3 rounded bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-gray-50 text-xs uppercase text-slate-500">
+            <tr>
+              <th className="px-3 py-2">ชื่อ / อีเมล / เบอร์โทร</th>
+              <th className="px-3 py-2">สิทธิ์</th>
+              <th className="px-3 py-2">วิสาหกิจชุมชน</th>
+              <th className="px-3 py-2">วันที่สร้าง</th>
+              <th className="px-3 py-2">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {filteredUsers.map(u => (
+              <tr key={u.id}>
+                <td className="px-3 py-2">
+                  <div className="font-medium text-slate-700">{u.name || '-'}</div>
+                  <div className="text-xs text-slate-400">{[u.email, u.phone].filter(Boolean).join(' · ') || '-'}</div>
+                </td>
+                <td className="px-3 py-2 text-xs">{ROLE_LABELS[u.role] || u.role}</td>
+                <td className="px-3 py-2 text-xs">
+                  {[...(affiliatedEntityIdsById.get(u.id) || [])].map(id => entityNameById.get(id)).filter(Boolean).join(', ') || '-'}
+                </td>
+                <td className="px-3 py-2 text-xs text-slate-400">{u.createdAt ? new Date(u.createdAt).toLocaleDateString('th-TH') : ''}</td>
+                <td className="px-3 py-2">
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => setEditingUser(u)}
+                      className="rounded border border-gray-300 px-2 py-1 text-xs hover:border-emerald-600 hover:text-emerald-700"
+                    >
+                      แก้ไข
+                    </button>
+                    <button
+                      onClick={() => setPasswordUser(u)}
+                      className="rounded border border-gray-300 px-2 py-1 text-xs hover:border-amber-500 hover:text-amber-700"
+                    >
+                      เปลี่ยนรหัสผ่าน
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {filteredUsers.length === 0 && (
+              <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-400">ไม่มีผู้ใช้</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {showAdd && (
+        <AddUserModal entities={entities} onClose={() => setShowAdd(false)} onSave={addUser} />
+      )}
+      {editingUser && (
+        <EditUserModal user={editingUser} entities={entities} onClose={() => setEditingUser(null)} onSave={saveEdit} />
+      )}
+      {passwordUser && (
+        <ChangePasswordModal user={passwordUser} onClose={() => setPasswordUser(null)} onSave={savePassword} />
+      )}
     </Card>
   );
 }

@@ -32,8 +32,10 @@ export const api = {
   deleteTree: (id) => request(`/api/trees/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
   listUsers: () => request('/api/admin/users'),
-  addUser: (email, phone, password) => request('/api/admin/users', { method: 'POST', body: JSON.stringify({ email, phone, password }) }),
+  addUser: (email, phone, password, role, managedCommunityEnterpriseId) => request('/api/admin/users', { method: 'POST', body: JSON.stringify({ email, phone, password, role, managedCommunityEnterpriseId }) }),
   updateUserRole: (id, role, managedCommunityEnterpriseId) => request(`/api/admin/users/${encodeURIComponent(id)}/role`, { method: 'PATCH', body: JSON.stringify({ role, managedCommunityEnterpriseId }) }),
+  updateUserProfile: (id, { name, email, phone }) => request(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ name, email, phone }) }),
+  updateUserPassword: (id, password) => request(`/api/admin/users/${encodeURIComponent(id)}/password`, { method: 'PATCH', body: JSON.stringify({ password }) }),
 
   listCommunityEnterprises: () => request('/api/admin/community-enterprises'),
   saveCommunityEnterprise: (entity) => request(`/api/admin/community-enterprises/${encodeURIComponent(entity.id)}`, { method: 'PUT', body: JSON.stringify(entity) }),

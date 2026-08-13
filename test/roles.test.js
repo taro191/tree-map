@@ -262,3 +262,95 @@ test('enterprise_admin exports are scoped to their own community enterprise plot
 
   server.close();
 });
+
+test('admin can edit a user\'s profile fields, with validation and uniqueness checks', async () => {
+  const { server, base } = await startServer();
+  const { cookie: adminCookie } = await registerAdmin(base, '0810000010');
+  const { user: target } = await registerFieldUser(base, '0810000011', '1991-06-15');
+  const { user: other } = await registerFieldUser(base, '0810000012', '1993-08-20');
+
+  // happy path: update name/email/phone
+  let res = await fetch(`${base}/api/admin/users/${target.id}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', Cookie: adminCookie },
+    body: JSON.stringify({ name: 'ชื่อใหม่', email: 'newmail@example.com', phone: '0899990001' })
+  });
+  assert.equal(res.status, 200);
+  const updated = await res.json();
+  assert.equal(updated.name, 'ชื่อใหม่');
+  assert.equal(updated.email, 'newmail@example.com');
+  assert.equal(updated.phone, '0899990001');
+
+  // must keep at least one of email/phone
+  res = await fetch(`${base}/api/admin/users/${target.id}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', Cookie: adminCookie },
+    body: JSON.stringify({ name: 'x', email: '', phone: '' })
+  });
+  assert.equal(res.status, 400);
+
+  // invalid email format is rejected
+  res = await fetch(`${base}/api/admin/users/${target.id}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', Cookie: adminCookie },
+    body: JSON.stringify({ email: 'not-an-email', phone: '0899990001' })
+  });
+  assert.equal(res.status, 400);
+
+  // duplicate phone (already used by another user) is rejected
+  res = await fetch(`${base}/api/admin/users/${target.id}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', Cookie: adminCookie },
+    body: JSON.stringify({ email: 'newmail@example.com', phone: other.phone })
+  });
+  assert.equal(res.status, 409);
+
+  // non-admin roles cannot edit profiles
+  const { user: memberTarget } = await registerFieldUser(base, '0810000013', '1990-03-03');
+  res = await fetch(`${base}/api/admin/users/${memberTarget.id}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'noauth@example.com' })
+  });
+  assert.equal(res.status, 401);
+
+  server.close();
+});
+
+test('admin can reset a user\'s password, and the new password works for login', async () => {
+  const { server, base } = await startServer();
+  const { cookie: adminCookie } = await registerAdmin(base, '0810000014');
+  const { user: target } = await registerFieldUser(base, '0810000015', '1994-09-09');
+
+  // too-short password rejected
+  let res = await fetch(`${base}/api/admin/users/${target.id}/password`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', Cookie: adminCookie },
+    body: JSON.stringify({ password: 'short' })
+  });
+  assert.equal(res.status, 400);
+
+  // valid reset succeeds
+  res = await fetch(`${base}/api/admin/users/${target.id}/password`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', Cookie: adminCookie },
+    body: JSON.stringify({ password: 'brandnewpassword123' })
+  });
+  assert.equal(res.status, 204);
+
+  // old password no longer works
+  res = await fetch(`${base}/api/auth/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier: '0810000015', password: '09091994' })
+  });
+  assert.equal(res.status, 401);
+
+  // new password works
+  res = await fetch(`${base}/api/auth/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier: '0810000015', password: 'brandnewpassword123' })
+  });
+  assert.equal(res.status, 200);
+
+  // non-admin cannot reset passwords
+  res = await fetch(`${base}/api/admin/users/${target.id}/password`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: 'anotherpassword123' })
+  });
+  assert.equal(res.status, 401);
+
+  server.close();
+});

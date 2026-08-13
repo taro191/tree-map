@@ -72,6 +72,20 @@ function createMemoryStore() {
       user.managedCommunityEnterpriseId = managedCommunityEnterpriseId || null;
       return user;
     },
+    async updateUserProfile(id, { name, email, phone }) {
+      const user = users.get(id);
+      if (!user) return null;
+      user.name = name || null;
+      user.email = email || null;
+      user.phone = phone || null;
+      return user;
+    },
+    async updateUserPassword(id, passwordHash) {
+      const user = users.get(id);
+      if (!user) return null;
+      user.passwordHash = passwordHash;
+      return user;
+    },
     async findUserByEmail(email) {
       return [...users.values()].find(u => u.email === email) || null;
     },
