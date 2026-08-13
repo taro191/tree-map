@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.25</title>
+<title>ระบบแผนที่ต้นไม้ v1.26</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -125,12 +125,12 @@
     background:var(--tag);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:13px;
   }
   .active-plot-banner b{color:var(--primary-dark);}
-  #btn-edit-plot-detail{
+  #btn-edit-plot-detail, #btn-edit-boundary{
     width:28px;height:28px;border-radius:8px;border:none;cursor:pointer;
     display:flex;align-items:center;justify-content:center;font-size:13px;
     color:white;background:var(--bark);
   }
-  #btn-edit-plot-detail:hover{background:#8f5127;}
+  #btn-edit-plot-detail:hover, #btn-edit-boundary:hover{background:#8f5127;}
   .mode-toggle{
     display:flex;align-items:center;justify-content:space-between;
     background:var(--tag);border-radius:10px;padding:10px 12px;margin-bottom:14px;
@@ -299,13 +299,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.25</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.26</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.25</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.26</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -359,7 +359,7 @@
         </div>
 
         <div id="plot-step-boundary" style="display:none;">
-          <h3 style="font-size:14px;margin-bottom:8px;">วาดขอบเขตแปลง</h3>
+          <h3 id="boundary-step-title" style="font-size:14px;margin-bottom:8px;">วาดขอบเขตแปลง</h3>
           <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;line-height:1.5;">
             แตะบนแผนที่เพื่อวางจุดขอบเขตทีละจุด หรือเปิดโหมดเดินสำรวจแล้วเดินจริงรอบแปลง ระบบจะบันทึกพิกัด GPS ให้อัตโนมัติ
           </p>
@@ -563,6 +563,7 @@ let currentView = 'home';
 
 let creatingPlot = null;   // {name, ownerName, ownerContact, color, points:[]}
 let boundaryMode = false;
+let editingBoundaryPlotId = null;
 let walking = false;
 let walkWatchId = null;
 let lastWalkPoint = null;
@@ -1177,7 +1178,12 @@ function renderPlotDetailInfo(){
           ${addrLine ? `<br>ที่ตั้ง: ${escapeHtml(addrLine)}` : ''}
           <br>🌳 ${count} ต้น
         </div>
-        ${locked ? '' : '<button class="edit-btn" id="btn-edit-plot-detail" style="flex-shrink:0;">✏️</button>'}
+        ${locked ? '' : `
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            <button class="edit-btn" id="btn-edit-plot-detail" title="แก้ไขข้อมูลแปลง">✏️</button>
+            <button class="edit-btn" id="btn-edit-boundary" title="แก้ไขขอบเขตแปลง">🗺️</button>
+          </div>
+        `}
       </div>
     </div>
     ${rejectionNote ? `
@@ -1190,7 +1196,29 @@ function renderPlotDetailInfo(){
   `;
   const editBtn = document.getElementById('btn-edit-plot-detail');
   if(editBtn) editBtn.onclick = ()=> startEditPlotDetail();
+  const editBoundaryBtn = document.getElementById('btn-edit-boundary');
+  if(editBoundaryBtn) editBoundaryBtn.onclick = ()=> startEditBoundary(plot);
   renderPlotSubmitArea();
+}
+
+function startEditBoundary(plot){
+  creatingPlot = {
+    name: plot.name, ownerName: plot.ownerName, ownerContact: plot.ownerContact,
+    docTitle: plot.docTitle, areaRai: plot.areaRai, areaNgan: plot.areaNgan, areaWa: plot.areaWa,
+    subdistrict: plot.subdistrict, district: plot.district, province: plot.province, postcode: plot.postcode,
+    color: plot.color, points: (plot.boundary || []).map(pt=>({lat:pt.lat, lng:pt.lng}))
+  };
+  editingBoundaryPlotId = plot.id;
+  boundaryMode = true;
+  setView('plot-form');
+  document.getElementById('sidebar-subtitle-view').textContent = 'แก้ไขขอบเขตแปลง';
+  document.getElementById('boundary-step-title').textContent = 'แก้ไขขอบเขตแปลง';
+  document.getElementById('btn-save-boundary').textContent = 'บันทึกขอบเขตแปลง';
+  document.getElementById('plot-step-info').style.display = 'none';
+  document.getElementById('plot-step-boundary').style.display = 'block';
+  renderBoundaryPreview();
+  updateBoundaryCount();
+  updateBanner();
 }
 
 function renderPlotSubmitArea(){
@@ -1758,8 +1786,8 @@ function stampPlotPhoto(img, plot, pos){
   const subSize = Math.max(12, Math.round(w*0.03));
   const lineH = subSize + 8;
 
-  ctx.fillStyle = '#000';
-  ctx.shadowColor = 'rgba(255,255,255,0.85)';
+  ctx.fillStyle = '#fff';
+  ctx.shadowColor = 'rgba(0,0,0,0.85)';
   ctx.shadowBlur = 5;
 
   // top-left: owner name + doc title/area
@@ -1970,8 +1998,16 @@ document.getElementById('btn-identify-register').onclick = async ()=>{
 
 document.getElementById('btn-back-home-from-form').onclick = ()=>{
   if(boundaryMode){
-    if(!confirm('ยกเลิกการสร้างแปลงนี้?')) return;
+    if(!confirm(editingBoundaryPlotId ? 'ยกเลิกการแก้ไขขอบเขตแปลงนี้?' : 'ยกเลิกการสร้างแปลงนี้?')) return;
+    const wasEditingBoundary = !!editingBoundaryPlotId;
+    const plotId = editingBoundaryPlotId;
     endBoundaryCreation();
+    if(wasEditingBoundary){
+      selectedPlotId = plotId;
+      renderAll();
+      setView('plot-detail');
+      return;
+    }
   }
   setView('home');
 };
@@ -2019,10 +2055,13 @@ function endBoundaryCreation(){
   walking = false;
   boundaryMode = false;
   creatingPlot = null;
+  editingBoundaryPlotId = null;
   boundaryPreviewLayer.clearLayers();
   document.getElementById('walk-switch').classList.remove('on');
   document.getElementById('plot-step-boundary').style.display = 'none';
   document.getElementById('plot-step-info').style.display = 'block';
+  document.getElementById('boundary-step-title').textContent = 'วาดขอบเขตแปลง';
+  document.getElementById('btn-save-boundary').textContent = 'บันทึกแปลง';
   updateBanner();
 }
 
@@ -2042,12 +2081,33 @@ document.getElementById('btn-undo-point').onclick = ()=>{
 };
 
 document.getElementById('btn-cancel-boundary').onclick = ()=>{
-  if(!confirm('ยกเลิกการสร้างแปลงนี้?')) return;
+  if(!confirm(editingBoundaryPlotId ? 'ยกเลิกการแก้ไขขอบเขตแปลงนี้?' : 'ยกเลิกการสร้างแปลงนี้?')) return;
+  const wasEditingBoundary = !!editingBoundaryPlotId;
+  const plotId = editingBoundaryPlotId;
   endBoundaryCreation();
+  if(wasEditingBoundary){
+    selectedPlotId = plotId;
+    renderAll();
+    setView('plot-detail');
+  }
 };
 
 document.getElementById('btn-save-boundary').onclick = async ()=>{
   if(!creatingPlot || creatingPlot.points.length<3) return;
+  if(editingBoundaryPlotId){
+    const plotId = editingBoundaryPlotId;
+    const existing = plots.find(p=>p.id===plotId);
+    if(!existing){ endBoundaryCreation(); setView('home'); return; }
+    const updated = { ...existing, boundary: creatingPlot.points.slice() };
+    try{ await apiSavePlot(updated); }catch(err){ alert(err.message); return; }
+    const idx = plots.findIndex(p=>p.id===plotId);
+    if(idx>=0) plots[idx] = updated;
+    selectedPlotId = plotId;
+    endBoundaryCreation();
+    renderAll();
+    setView('plot-detail');
+    return;
+  }
   const plot = {
     id: uid(), name: creatingPlot.name, ownerName: creatingPlot.ownerName,
     ownerContact: creatingPlot.ownerContact, docTitle: creatingPlot.docTitle,
