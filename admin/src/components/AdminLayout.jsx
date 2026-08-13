@@ -4,7 +4,7 @@ import { useAuth } from '../AuthContext';
 
 const NAV_ITEMS = [
   { to: '/', label: 'แดชบอร์ด', icon: '📊' },
-  { to: '/plots', label: 'แปลงต้นไม้', icon: '📍' },
+  { to: '/plots', label: 'แปลง', icon: '📍' },
   { to: '/trees', label: 'ต้นไม้', icon: '🌳' },
   { to: '/users', label: 'ผู้ใช้งาน', icon: '👥', adminOnly: true },
   { to: '/community-enterprises', label: 'วิสาหกิจชุมชน', icon: '🏢' },

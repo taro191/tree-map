@@ -94,7 +94,7 @@ export default function Plots() {
   return (
     <div>
       <PageHeader
-        title="แปลงต้นไม้"
+        title="แปลง"
         subtitle={filtersActive ? `แสดง ${filteredPlots.length} จากทั้งหมด ${scopedPlots.length} แปลง` : `ทั้งหมด ${scopedPlots.length} แปลง`}
         actions={
           <a href="/api/admin/export/plots.csv" className="rounded border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-emerald-600 hover:text-emerald-700">📥 Export แปลง (CSV)</a>
