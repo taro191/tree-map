@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.30</title>
+<title>ระบบแผนที่ต้นไม้ v1.31</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -200,18 +200,19 @@
   #plot-detail-map .empty-hint{padding:0;}
 
   /* Map */
-  .tree-pin{
-    background:var(--bark);color:white;border-radius:50% 50% 50% 0;
-    width:30px;height:30px;transform:rotate(-45deg);
-    display:flex;align-items:center;justify-content:center;
-    border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3);
+  .flag-pin{position:relative;width:26px;height:32px;}
+  .flag-pin .pole{position:absolute;left:3px;top:2px;width:2px;height:27px;background:#4b3621;border-radius:1px;}
+  .flag-pin .flag-tri{
+    position:absolute;left:5px;top:2px;width:0;height:0;
+    border-style:solid;border-width:6px 0 6px 14px;
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));
   }
-  .tree-pin span{transform:rotate(45deg);font-weight:700;font-size:12px;}
-
-  .ref-pin{
-    background:var(--primary-dark);color:white;border-radius:50%;
-    width:28px;height:28px;display:flex;align-items:center;justify-content:center;
-    font-size:14px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3);
+  .flag-pin.ref .flag-tri{border-color:transparent transparent transparent #DC2626;}
+  .flag-pin.tree .flag-tri{border-color:transparent transparent transparent #F97316;}
+  .tree-flag-label{
+    position:absolute;left:20px;top:-3px;background:white;border:1.5px solid #F97316;
+    border-radius:8px;padding:0 5px;font-size:10.5px;font-weight:700;color:#333;
+    white-space:nowrap;line-height:15px;box-shadow:0 1px 3px rgba(0,0,0,.25);
   }
 
   #crosshair-banner{
@@ -305,13 +306,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.30</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.31</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.30</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.31</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -1526,19 +1527,29 @@ function renderTreeTab(){
   });
 }
 
+function treeFlagIcon(seq){
+  return L.divIcon({
+    className:'',
+    html:`<div class="flag-pin tree"><div class="pole"></div><div class="flag-tri"></div><div class="tree-flag-label">${seq}</div></div>`,
+    iconSize:[46,32], iconAnchor:[4,30]
+  });
+}
+
+function refFlagIcon(){
+  return L.divIcon({
+    className:'',
+    html:`<div class="flag-pin ref"><div class="pole"></div><div class="flag-tri"></div></div>`,
+    iconSize:[26,32], iconAnchor:[4,30]
+  });
+}
+
 function renderMarkers(){
   markerLayer.clearLayers();
   if(currentView !== 'home'){
     trees.forEach(t=>{
       const plot = plots.find(p=>p.id===t.plotId);
       if(!plot || !isPlotVisibleToUser(plot)) return;
-      const color = plot.color;
-      const icon = L.divIcon({
-        className:'',
-        html:`<div class="tree-pin" style="background:${color}"><span>${t.seq}</span></div>`,
-        iconSize:[30,30], iconAnchor:[15,30]
-      });
-      const marker = L.marker([t.lat,t.lng], {icon}).addTo(markerLayer);
+      const marker = L.marker([t.lat,t.lng], {icon: treeFlagIcon(t.seq)}).addTo(markerLayer);
       const photoHtml = t.photoUrl ? `<img src="${escapeAttr(t.photoUrl)}" onerror="this.style.display='none'">` : '';
       marker.bindPopup(`
         <div class="popup-card">
@@ -1554,13 +1565,8 @@ function renderMarkers(){
 
   plots.forEach(p=>{
     if(!p.refPoint || !isPlotVisibleToUser(p)) return;
-    const icon = L.divIcon({
-      className:'',
-      html:`<div class="ref-pin" style="background:${p.color}">🚩</div>`,
-      iconSize:[28,28], iconAnchor:[14,28]
-    });
     const refPhotosHtml = (p.refPoint.photos||[]).map(src=>`<img src="${src}">`).join('');
-    L.marker([p.refPoint.lat, p.refPoint.lng], {icon}).addTo(markerLayer)
+    L.marker([p.refPoint.lat, p.refPoint.lng], {icon: refFlagIcon()}).addTo(markerLayer)
       .bindTooltip('จุดอ้างอิง: '+p.name, {sticky:true})
       .bindPopup(`
         <div class="popup-card">
@@ -1609,22 +1615,12 @@ function renderPlotDetailMap(){
   L.polygon(latlngs, {color:plot.color, weight:3, fillColor:plot.color, fillOpacity:0.15}).addTo(plotDetailMap);
 
   trees.filter(t=>t.plotId===plot.id).forEach(t=>{
-    const icon = L.divIcon({
-      className:'',
-      html:`<div class="tree-pin" style="background:${plot.color}"><span>${t.seq}</span></div>`,
-      iconSize:[26,26], iconAnchor:[13,26]
-    });
-    L.marker([t.lat,t.lng], {icon}).addTo(plotDetailMap);
+    L.marker([t.lat,t.lng], {icon: treeFlagIcon(t.seq)}).addTo(plotDetailMap);
   });
 
   const bounds = L.latLngBounds(latlngs);
   if(plot.refPoint){
-    const refIcon = L.divIcon({
-      className:'',
-      html:`<div class="ref-pin" style="background:${plot.color}">🚩</div>`,
-      iconSize:[26,26], iconAnchor:[13,26]
-    });
-    L.marker([plot.refPoint.lat, plot.refPoint.lng], {icon: refIcon}).addTo(plotDetailMap);
+    L.marker([plot.refPoint.lat, plot.refPoint.lng], {icon: refFlagIcon()}).addTo(plotDetailMap);
     bounds.extend([plot.refPoint.lat, plot.refPoint.lng]);
   }
   setTimeout(()=>{
