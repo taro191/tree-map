@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.26</title>
+<title>ระบบแผนที่ต้นไม้ v1.27</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -299,13 +299,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.26</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.27</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.26</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.27</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -1098,6 +1098,10 @@ function isPlotVisibleToUser(plot){
   return !plot.createdBy || plot.createdBy === identifiedUser.id;
 }
 
+function isOwnPlot(plot){
+  return !!identifiedUser && plot.createdBy === identifiedUser.id;
+}
+
 function visiblePlots(){
   return plots.filter(isPlotVisibleToUser);
 }
@@ -1127,7 +1131,7 @@ function renderPlotList(){
     card.innerHTML = `
       <button class="del-btn" data-del="${p.id}">✕</button>
       <div class="plot-name"><span class="swatch" style="background:${p.color}"></span>${escapeHtml(p.name)} ${plotStatusBadge(p)}</div>
-      <div class="plot-owner">เจ้าของ: ${escapeHtml(p.ownerName||'-')}${p.ownerContact? ' · '+escapeHtml(p.ownerContact):''}</div>
+      ${isOwnPlot(p) ? '' : `<div class="plot-owner">เจ้าของ: ${escapeHtml(p.ownerName||'-')}${p.ownerContact? ' · '+escapeHtml(p.ownerContact):''}</div>`}
       <div class="plot-count">🌳 ${count} ต้น${hasBoundary? '' : ' · ⚠️ ไม่มีขอบเขต'}</div>
     `;
     card.onclick = (e)=>{
@@ -1172,7 +1176,7 @@ function renderPlotDetailInfo(){
     <div class="active-plot-banner">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
         <div>
-          <b>${escapeHtml(plot.name)}</b> ${plotStatusBadge(plot)} · เจ้าของ: ${escapeHtml(plot.ownerName||'-')}${plot.ownerContact? ' · '+escapeHtml(plot.ownerContact):''}
+          <b>${escapeHtml(plot.name)}</b> ${plotStatusBadge(plot)}${isOwnPlot(plot) ? '' : ` · เจ้าของ: ${escapeHtml(plot.ownerName||'-')}${plot.ownerContact? ' · '+escapeHtml(plot.ownerContact):''}`}
           ${plot.docTitle ? `<br>เอกสารสิทธิ์: ${escapeHtml(plot.docTitle)}` : ''}
           ${areaLine ? `<br>เนื้อที่: ${escapeHtml(areaLine)}` : ''}
           ${addrLine ? `<br>ที่ตั้ง: ${escapeHtml(addrLine)}` : ''}
