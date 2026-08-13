@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.34</title>
+<title>ระบบแผนที่ต้นไม้ v1.35</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -308,13 +308,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.34</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.35</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.34</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.35</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -997,7 +997,6 @@ async function openAddPlotFlow(){
     identifiedUser = user;
     prefillOwnerFromIdentity();
     updateAuthMenuLabel();
-    renderBoundaries();
     setView('plot-form');
   } else {
     openIdentifyModal('add-plot');
@@ -1579,54 +1578,79 @@ function plotPathLatLngs(plot, plotTrees){
   return points;
 }
 
+function addTreeMarkerToLayer(t, plot){
+  const marker = L.marker([t.lat,t.lng], {icon: treeFlagIcon(t.seq)}).addTo(markerLayer);
+  const photoHtml = t.photoUrl ? `<img src="${escapeAttr(t.photoUrl)}" onerror="this.style.display='none'">` : '';
+  marker.bindPopup(`
+    <div class="popup-card">
+      <div class="pseq">ต้นที่ ${t.seq} · ${escapeHtml(plot?plot.name:'')}</div>
+      <div class="pname">${escapeHtml(t.name||'ไม่ระบุชื่อ')}</div>
+      ${photoHtml}
+      ${t.code?`<div class="pnote">โค้ด: ${escapeHtml(t.code)}</div>`:''}
+      ${t.note?`<div class="pnote">${escapeHtml(t.note)}</div>`:''}
+    </div>
+  `);
+}
+
+function addRefMarkerToLayer(p){
+  const refPhotosHtml = (p.refPoint.photos||[]).map(src=>`<img src="${src}">`).join('');
+  L.marker([p.refPoint.lat, p.refPoint.lng], {icon: refFlagIcon()}).addTo(markerLayer)
+    .bindTooltip('จุดอ้างอิง: '+p.name, {sticky:true})
+    .bindPopup(`
+      <div class="popup-card">
+        <div class="pseq">จุดอ้างอิง · ${escapeHtml(p.name)}</div>
+        ${refPhotosHtml ? `<div class="ref-photos" style="display:flex;flex-wrap:wrap;gap:4px;margin:6px 0;">${refPhotosHtml}</div>` : ''}
+        ${p.refPoint.description ? `<div class="pnote">${escapeHtml(p.refPoint.description)}</div>` : ''}
+      </div>
+    `);
+}
+
+function addPathToLayer(p, plotTrees){
+  const path = plotPathLatLngs(p, plotTrees);
+  if(path.length >= 2){
+    L.polyline(path, {color:PATH_LINE_COLOR, weight:3, opacity:0.9, dashArray:'6,6'}).addTo(markerLayer);
+  }
+}
+
 function renderMarkers(){
   markerLayer.clearLayers();
-  if(currentView !== 'home'){
-    trees.forEach(t=>{
-      const plot = plots.find(p=>p.id===t.plotId);
-      if(!plot || !isPlotVisibleToUser(plot)) return;
-      const marker = L.marker([t.lat,t.lng], {icon: treeFlagIcon(t.seq)}).addTo(markerLayer);
-      const photoHtml = t.photoUrl ? `<img src="${escapeAttr(t.photoUrl)}" onerror="this.style.display='none'">` : '';
-      marker.bindPopup(`
-        <div class="popup-card">
-          <div class="pseq">ต้นที่ ${t.seq} · ${escapeHtml(plot?plot.name:'')}</div>
-          <div class="pname">${escapeHtml(t.name||'ไม่ระบุชื่อ')}</div>
-          ${photoHtml}
-          ${t.code?`<div class="pnote">โค้ด: ${escapeHtml(t.code)}</div>`:''}
-          ${t.note?`<div class="pnote">${escapeHtml(t.note)}</div>`:''}
-        </div>
-      `);
-    });
 
-    plots.forEach(p=>{
-      if(!isPlotVisibleToUser(p)) return;
-      const plotTrees = trees.filter(t=>t.plotId===p.id);
-      const path = plotPathLatLngs(p, plotTrees);
-      if(path.length >= 2){
-        L.polyline(path, {color:PATH_LINE_COLOR, weight:3, opacity:0.9, dashArray:'6,6'}).addTo(markerLayer);
-      }
-    });
+  // หน้าหลัก: ไม่แสดงหมุดต้นไม้/จุดอ้างอิงเลย แสดงแค่ขอบเขตแปลง (renderBoundaries)
+  if(currentView === 'home') return;
+
+  const scopedToSelectedPlot = (currentView === 'plot-detail' || currentView === 'trees');
+
+  if(scopedToSelectedPlot){
+    const plot = plots.find(p=>p.id===selectedPlotId);
+    if(!plot || !isPlotVisibleToUser(plot)) return;
+    const plotTrees = trees.filter(t=>t.plotId===plot.id);
+    plotTrees.forEach(t=>addTreeMarkerToLayer(t, plot));
+    addPathToLayer(plot, plotTrees);
+    if(plot.refPoint) addRefMarkerToLayer(plot);
+    return;
   }
 
+  trees.forEach(t=>{
+    const plot = plots.find(p=>p.id===t.plotId);
+    if(!plot || !isPlotVisibleToUser(plot)) return;
+    addTreeMarkerToLayer(t, plot);
+  });
+  plots.forEach(p=>{
+    if(!isPlotVisibleToUser(p)) return;
+    addPathToLayer(p, trees.filter(t=>t.plotId===p.id));
+  });
   plots.forEach(p=>{
     if(!p.refPoint || !isPlotVisibleToUser(p)) return;
-    const refPhotosHtml = (p.refPoint.photos||[]).map(src=>`<img src="${src}">`).join('');
-    L.marker([p.refPoint.lat, p.refPoint.lng], {icon: refFlagIcon()}).addTo(markerLayer)
-      .bindTooltip('จุดอ้างอิง: '+p.name, {sticky:true})
-      .bindPopup(`
-        <div class="popup-card">
-          <div class="pseq">จุดอ้างอิง · ${escapeHtml(p.name)}</div>
-          ${refPhotosHtml ? `<div class="ref-photos" style="display:flex;flex-wrap:wrap;gap:4px;margin:6px 0;">${refPhotosHtml}</div>` : ''}
-          ${p.refPoint.description ? `<div class="pnote">${escapeHtml(p.refPoint.description)}</div>` : ''}
-        </div>
-      `);
+    addRefMarkerToLayer(p);
   });
 }
 
 function renderBoundaries(){
   boundaryLayer.clearLayers();
+  const scopedToSelectedPlot = (currentView === 'plot-detail' || currentView === 'trees');
   plots.forEach(p=>{
     if(!p.boundary || p.boundary.length<3 || !isPlotVisibleToUser(p)) return;
+    if(scopedToSelectedPlot && p.id !== selectedPlotId) return;
     const latlngs = p.boundary.map(pt=>[pt.lat,pt.lng]);
     L.polygon(latlngs, {
       color:p.color, weight: p.id===selectedPlotId?3:2,
@@ -1709,6 +1733,7 @@ function setView(view){
   if(view === 'plot-detail') renderPlotDetailInfo();
   if(view === 'plot-detail') renderPlotDetailMap();
   renderMarkers();
+  renderBoundaries();
 }
 
 function renderAll(){
