@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.37</title>
+<title>ระบบแผนที่ต้นไม้ v1.38</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -308,13 +308,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.37</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.38</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.37</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.38</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -1374,6 +1374,10 @@ function renderPlotDetailEditForm(el, plot){
         <input id="edit-plot-province" value="${escapeAttr(plot.province||'')}" placeholder="จังหวัด" style="width:auto;flex:1;">
       </div>
     </div>
+    <div class="field">
+      <label>สีประจำแปลง</label>
+      <div class="color-row" id="edit-color-row"></div>
+    </div>
     <div style="display:flex;gap:8px;">
       <button class="btn" id="btn-save-plot-detail" style="flex:1;">บันทึก</button>
       <button class="btn secondary" id="btn-cancel-plot-detail" style="flex:1;">ยกเลิก</button>
@@ -1381,6 +1385,21 @@ function renderPlotDetailEditForm(el, plot){
   `;
   document.getElementById('edit-plot-postcode').addEventListener('focus', ()=> loadThaiZipIndex().catch(()=>{}));
   document.getElementById('edit-plot-postcode').addEventListener('input', ()=> handlePostcodeInputFor(EDIT_PLOT_ADDR_IDS));
+
+  let editColor = plot.color;
+  function renderEditColorRow(){
+    const row = document.getElementById('edit-color-row');
+    row.innerHTML = '';
+    COLORS.forEach(c=>{
+      const d = document.createElement('div');
+      d.className = 'color-dot' + (c===editColor?' selected':'');
+      d.style.background = c;
+      d.onclick = ()=>{ editColor = c; renderEditColorRow(); };
+      row.appendChild(d);
+    });
+  }
+  renderEditColorRow();
+
   document.getElementById('btn-cancel-plot-detail').onclick = ()=>{
     editingPlotDetail = false;
     renderPlotDetailInfo();
@@ -1402,7 +1421,8 @@ function renderPlotDetailEditForm(el, plot){
       subdistrict: document.getElementById('edit-plot-subdistrict').value.trim(),
       district: document.getElementById('edit-plot-district').value.trim(),
       province: document.getElementById('edit-plot-province').value.trim(),
-      postcode: document.getElementById('edit-plot-postcode').value.trim()
+      postcode: document.getElementById('edit-plot-postcode').value.trim(),
+      color: editColor
     };
     try{ await apiSavePlot(updated); }catch(err){ alert(err.message); return; }
     const idx = plots.findIndex(p=>p.id===plot.id);
