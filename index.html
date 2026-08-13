@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.35</title>
+<title>ระบบแผนที่ต้นไม้ v1.36</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -308,13 +308,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.35</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.36</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.35</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.36</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -1705,12 +1705,12 @@ function renderPlotDetailMap(){
   }, 50);
 }
 
-function fitToPlot(){
-  if(!selectedPlotId) return;
-  const list = trees.filter(t=>t.plotId===selectedPlotId);
-  if(list.length===0) return;
-  const bounds = L.latLngBounds(list.map(t=>[t.lat,t.lng]));
-  map.fitBounds(bounds.pad(0.3));
+function fitMainMapToSelectedPlot(){
+  const plot = plots.find(p=>p.id===selectedPlotId);
+  if(!plot || !plot.boundary || plot.boundary.length < 3) return;
+  const bounds = L.latLngBounds(plot.boundary.map(pt=>[pt.lat,pt.lng]));
+  if(plot.refPoint) bounds.extend([plot.refPoint.lat, plot.refPoint.lng]);
+  map.fitBounds(bounds.pad(0.15));
 }
 
 const VIEW_TITLES = {
@@ -1734,6 +1734,7 @@ function setView(view){
   if(view === 'plot-detail') renderPlotDetailMap();
   renderMarkers();
   renderBoundaries();
+  if(view === 'plot-detail' || view === 'trees') fitMainMapToSelectedPlot();
 }
 
 function renderAll(){
