@@ -1,12 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Card from './Card';
+import { loadThaiZipIndex } from '../thaiZip';
 
 const FIELDS = [
   ['name', 'ชื่อกลุ่ม', 'text'],
   ['registrationNo', 'เลขทะเบียน', 'text'],
-  ['district', 'อำเภอ', 'text'],
-  ['province', 'จังหวัด', 'text'],
-  ['postcode', 'รหัสไปรษณีย์', 'text'],
   ['registeredDate', 'วันที่จดทะเบียน', 'date'],
   ['chairperson', 'ประธาน/ผู้แทนกลุ่ม', 'text'],
   ['contactPhone', 'เบอร์ติดต่อ', 'tel']
@@ -28,6 +26,9 @@ export default function CommunityEnterpriseCard({ entity, users, plots, purposes
   const [error, setError] = useState('');
   const [newMemberId, setNewMemberId] = useState('');
   const [newPlotId, setNewPlotId] = useState('');
+  const [addressStatus, setAddressStatus] = useState('');
+  const [addressMatches, setAddressMatches] = useState(null);
+  const postcodeRequestRef = useRef(0);
 
   const purposesById = new Map(purposes.map(p => [p.id, p.name]));
   const memberIds = new Set(entity.members.map(m => m.id));
@@ -41,6 +42,40 @@ export default function CommunityEnterpriseCard({ entity, users, plots, purposes
     setDraft({ ...entity });
     setEditing(true);
     setError('');
+    setAddressStatus('');
+    setAddressMatches(null);
+  }
+
+  async function handlePostcodeChange(value) {
+    setDraft(d => ({ ...d, postcode: value }));
+    setAddressMatches(null);
+    const pc = value.trim();
+    const requestId = ++postcodeRequestRef.current;
+    if (!/^\d{5}$/.test(pc)) { setAddressStatus(''); return; }
+    setAddressStatus('กำลังค้นหาที่อยู่...');
+    try {
+      const idx = await loadThaiZipIndex();
+      if (postcodeRequestRef.current !== requestId) return; // ผู้ใช้พิมพ์ต่อระหว่างรอโหลด
+      const matches = idx.get(pc) || [];
+      if (matches.length === 0) {
+        setAddressStatus('ไม่พบข้อมูลที่อยู่จากรหัสไปรษณีย์นี้ กรุณากรอกอำเภอ/จังหวัดเอง');
+      } else if (matches.length === 1) {
+        setDraft(d => ({ ...d, district: matches[0].districtBare, province: matches[0].province }));
+        setAddressStatus(`พบที่อยู่: ${matches[0].districtDisplay} ${matches[0].province}`);
+      } else {
+        setAddressStatus(`พบ ${matches.length} ที่อยู่ที่ตรงกับรหัสนี้ กรุณาเลือก:`);
+        setAddressMatches(matches);
+      }
+    } catch (err) {
+      if (postcodeRequestRef.current !== requestId) return;
+      setAddressStatus('โหลดข้อมูลที่อยู่ไม่สำเร็จ (ต้องใช้อินเทอร์เน็ต) กรุณากรอกที่อยู่เอง');
+    }
+  }
+
+  function selectAddressMatch(i) {
+    const m = addressMatches && addressMatches[i];
+    if (!m) return;
+    setDraft(d => ({ ...d, district: m.districtBare, province: m.province }));
   }
 
   async function save() {
@@ -178,6 +213,37 @@ export default function CommunityEnterpriseCard({ entity, users, plots, purposes
                 />
               </div>
             ))}
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-500">ที่ตั้ง</label>
+            <input
+              value={draft.postcode || ''} onChange={e => handlePostcodeChange(e.target.value)}
+              onFocus={() => loadThaiZipIndex().catch(() => {})}
+              placeholder="กรอกรหัสไปรษณีย์ (5 หลัก) เพื่อค้นหาที่อยู่" inputMode="numeric" maxLength={5}
+              className="mb-1 w-full rounded border border-stone-300 px-2 py-1 text-xs"
+            />
+            {addressStatus && <div className="mb-1 text-[11px] text-slate-500">{addressStatus}</div>}
+            {addressMatches && (
+              <select
+                defaultValue="" onChange={e => selectAddressMatch(Number(e.target.value))}
+                className="mb-1 w-full rounded border border-stone-300 px-2 py-1 text-xs"
+              >
+                <option value="" disabled>-- เลือกที่อยู่ --</option>
+                {addressMatches.map((m, i) => (
+                  <option key={i} value={i}>{m.districtDisplay} {m.province}</option>
+                ))}
+              </select>
+            )}
+            <div className="flex gap-2">
+              <input
+                value={draft.district || ''} onChange={e => setDraft({ ...draft, district: e.target.value })}
+                placeholder="อำเภอ" className="flex-1 rounded border border-stone-300 px-2 py-1 text-xs"
+              />
+              <input
+                value={draft.province || ''} onChange={e => setDraft({ ...draft, province: e.target.value })}
+                placeholder="จังหวัด" className="flex-1 rounded border border-stone-300 px-2 py-1 text-xs"
+              />
+            </div>
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold text-slate-500">วัตถุประสงค์หลัก</label>
