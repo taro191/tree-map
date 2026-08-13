@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.23</title>
+<title>ระบบแผนที่ต้นไม้ v1.24</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -108,6 +108,13 @@
   .btn.secondary{background:transparent;border:1px solid var(--line);color:var(--ink);}
   .btn.secondary:hover{border-color:var(--primary);}
   .btn.small{width:auto;padding:9px 12px;font-size:13px;}
+  .btn-submit-plot{
+    width:100%;padding:18px;border:none;border-radius:12px;background:#E8720C;
+    color:white;font-family:inherit;font-weight:800;font-size:17px;cursor:pointer;
+    transition:background .15s;min-height:58px;box-shadow:0 2px 10px rgba(232,114,12,.35);
+  }
+  .btn-submit-plot:hover{background:#C85F09;}
+  .btn-submit-plot:disabled{background:#D8B79A;cursor:not-allowed;box-shadow:none;}
 
   .color-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
   .color-dot{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;}
@@ -292,13 +299,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.23</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.24</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.23</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.24</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -377,6 +384,7 @@
       <div id="plot-detail-info"></div>
       <div id="plot-detail"></div>
       <div id="plot-detail-map"></div>
+      <div id="plot-submit-area" style="margin-top:16px;"></div>
     </div>
 
     <div class="panel" id="view-trees">
@@ -1150,8 +1158,8 @@ let editingPlotDetail = false;
 function renderPlotDetailInfo(){
   const el = document.getElementById('plot-detail-info');
   const plot = plots.find(p=>p.id===selectedPlotId);
-  if(!plot){ el.innerHTML = ''; return; }
-  if(editingPlotDetail){ renderPlotDetailEditForm(el, plot); return; }
+  if(!plot){ el.innerHTML = ''; renderPlotSubmitArea(); return; }
+  if(editingPlotDetail){ renderPlotDetailEditForm(el, plot); renderPlotSubmitArea(); return; }
   const count = trees.filter(t=>t.plotId===plot.id).length;
   const areaLine = areaText(plot);
   const addrLine = addressText(plot);
@@ -1179,17 +1187,31 @@ function renderPlotDetailInfo(){
         ${rejectionPhotos.length ? `<div class="review-photos">${rejectionPhotos.map(src=>`<img src="${escapeAttr(src)}">`).join('')}</div>` : ''}
       </div>
     ` : ''}
-    <div class="plot-submit-row">
-      ${status === 'tree_survey' ? `
-        <button class="btn" id="btn-submit-plot" ${count===0?'disabled':''}>📤 ส่งแปลงตรวจสอบ</button>
-        ${count===0 ? '<div class="empty-hint" style="padding-top:6px;">ต้องมีต้นไม้อย่างน้อย 1 ต้นก่อนส่งตรวจสอบ</div>' : ''}
-      ` : ''}
-      ${status === 'submitted' ? '<div class="status-hint">⏳ ส่งแปลงตรวจสอบแล้ว รอผลการตรวจสอบ</div>' : ''}
-      ${status === 'approved' ? '<div class="status-hint">✅ ตรวจสอบผ่านแล้ว ไม่สามารถแก้ไขข้อมูลได้อีก</div>' : ''}
-    </div>
   `;
   const editBtn = document.getElementById('btn-edit-plot-detail');
   if(editBtn) editBtn.onclick = ()=> startEditPlotDetail();
+  renderPlotSubmitArea();
+}
+
+function renderPlotSubmitArea(){
+  const el = document.getElementById('plot-submit-area');
+  if(!el) return;
+  const plot = plots.find(p=>p.id===selectedPlotId);
+  if(!plot || editingPlotDetail){ el.innerHTML = ''; return; }
+  const count = trees.filter(t=>t.plotId===plot.id).length;
+  const status = plot.status || 'data_entry';
+  let html = '';
+  if(status === 'tree_survey'){
+    html = `
+      <button class="btn-submit-plot" id="btn-submit-plot" ${count===0?'disabled':''}>📤 ส่งแปลงตรวจสอบ</button>
+      ${count===0 ? '<div class="empty-hint" style="padding-top:6px;">ต้องมีต้นไม้อย่างน้อย 1 ต้นก่อนส่งตรวจสอบ</div>' : ''}
+    `;
+  } else if(status === 'submitted'){
+    html = '<div class="status-hint">⏳ ส่งแปลงตรวจสอบแล้ว รอผลการตรวจสอบ</div>';
+  } else if(status === 'approved'){
+    html = '<div class="status-hint">✅ ตรวจสอบผ่านแล้ว ไม่สามารถแก้ไขข้อมูลได้อีก</div>';
+  }
+  el.innerHTML = html;
   const submitBtn = document.getElementById('btn-submit-plot');
   if(submitBtn) submitBtn.onclick = ()=> submitPlotForReview(plot.id);
 }
