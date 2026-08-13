@@ -86,3 +86,10 @@ ALTER TABLE plots ADD COLUMN IF NOT EXISTS created_by TEXT REFERENCES users(id) 
 ALTER TABLE plots ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'data_entry';
 ALTER TABLE plots ADD COLUMN IF NOT EXISTS review_note TEXT;
 ALTER TABLE plots ADD COLUMN IF NOT EXISTS review_photos JSONB;
+
+-- One-time backfill for plots created before the status workflow existed: a plot that
+-- already has trees should start at tree_survey, not data_entry, so its "ส่งแปลงตรวจสอบ"
+-- button is available immediately instead of looking permanently missing. Safe to re-run
+-- every boot since it only ever touches rows still sitting at the default data_entry status.
+UPDATE plots SET status = 'tree_survey'
+WHERE status = 'data_entry' AND EXISTS (SELECT 1 FROM trees WHERE trees.plot_id = plots.id);

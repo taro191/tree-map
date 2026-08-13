@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.24</title>
+<title>ระบบแผนที่ต้นไม้ v1.25</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -299,13 +299,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.24</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.25</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.24</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.25</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -1201,7 +1201,12 @@ function renderPlotSubmitArea(){
   const count = trees.filter(t=>t.plotId===plot.id).length;
   const status = plot.status || 'data_entry';
   let html = '';
-  if(status === 'tree_survey'){
+  if(status === 'data_entry'){
+    html = `
+      <button class="btn-submit-plot" disabled>📤 ส่งแปลงตรวจสอบ</button>
+      <div class="empty-hint" style="padding-top:6px;">ต้องบันทึกจุดอ้างอิงและเพิ่มต้นไม้อย่างน้อย 1 ต้นก่อน ปุ่มนี้จึงจะกดได้</div>
+    `;
+  } else if(status === 'tree_survey'){
     html = `
       <button class="btn-submit-plot" id="btn-submit-plot" ${count===0?'disabled':''}>📤 ส่งแปลงตรวจสอบ</button>
       ${count===0 ? '<div class="empty-hint" style="padding-top:6px;">ต้องมีต้นไม้อย่างน้อย 1 ต้นก่อนส่งตรวจสอบ</div>' : ''}
