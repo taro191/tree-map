@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.29</title>
+<title>ระบบแผนที่ต้นไม้ v1.30</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -108,6 +108,12 @@
   .btn.secondary{background:transparent;border:1px solid var(--line);color:var(--ink);}
   .btn.secondary:hover{border-color:var(--primary);}
   .btn.small{width:auto;padding:9px 12px;font-size:13px;}
+  .identify-mode-toggle{display:flex;gap:8px;margin-bottom:12px;}
+  .identify-mode-toggle button{
+    flex:1;padding:9px 8px;border-radius:9px;border:1px solid var(--line);background:transparent;
+    color:var(--ink);font-family:inherit;font-weight:600;font-size:13px;cursor:pointer;transition:.15s;
+  }
+  .identify-mode-toggle button.active{background:var(--primary);border-color:var(--primary);color:white;}
   .btn-submit-plot{
     width:100%;padding:18px;border:none;border-radius:12px;background:#E8720C;
     color:white;font-family:inherit;font-weight:800;font-size:17px;cursor:pointer;
@@ -299,13 +305,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.29</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.30</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.29</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.30</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -495,15 +501,23 @@
   <div class="modal">
     <h3>ระบุตัวตนก่อนเพิ่มแปลง</h3>
     <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.5;">
-      กรอกเบอร์โทรศัพท์และวันเดือนปีเกิดของคุณ ระบบจะจดจำเครื่องนี้ไว้ ไม่ต้องกรอกซ้ำในครั้งถัดไป
+      กรอกเบอร์โทรศัพท์ แล้วเข้าสู่ระบบด้วยวันเดือนปีเกิดหรือรหัสผ่านของคุณ ระบบจะจดจำเครื่องนี้ไว้ ไม่ต้องกรอกซ้ำในครั้งถัดไป
     </p>
     <div class="field">
       <label>เบอร์โทรศัพท์</label>
       <input id="in-identify-phone" type="tel" placeholder="0812345678">
     </div>
-    <div class="field">
+    <div class="identify-mode-toggle">
+      <button type="button" id="btn-identify-mode-dob" class="active">เข้าสู่ระบบด้วยวันเกิด</button>
+      <button type="button" id="btn-identify-mode-password">เข้าสู่ระบบด้วยรหัสผ่าน</button>
+    </div>
+    <div class="field" id="identify-dob-field">
       <label>วันเดือนปีเกิด (พ.ศ.)</label>
       <input id="in-identify-dob" type="text" inputmode="numeric" maxlength="8" placeholder="วว ดด ปปปป เช่น 15032533">
+    </div>
+    <div class="field" id="identify-password-field" style="display:none;">
+      <label>รหัสผ่าน</label>
+      <input id="in-identify-password" type="password" placeholder="รหัสผ่าน">
     </div>
     <div id="identify-error" style="color:#b33;font-size:12.5px;margin-bottom:10px;display:none;"></div>
     <button class="btn" id="btn-identify-login" style="margin-bottom:10px;">เข้าสู่ระบบ</button>
@@ -941,15 +955,28 @@ function showIdentifyError(msg){
 }
 
 let identifyModalPurpose = 'add-plot';
+let identifyLoginMode = 'dob';
+
+function setIdentifyLoginMode(mode){
+  identifyLoginMode = mode;
+  document.getElementById('btn-identify-mode-dob').classList.toggle('active', mode === 'dob');
+  document.getElementById('btn-identify-mode-password').classList.toggle('active', mode === 'password');
+  document.getElementById('identify-dob-field').style.display = mode === 'dob' ? 'block' : 'none';
+  document.getElementById('identify-password-field').style.display = mode === 'password' ? 'block' : 'none';
+  document.getElementById('identify-error').style.display = 'none';
+}
 
 function openIdentifyModal(purpose){
   identifyModalPurpose = purpose || 'add-plot';
   document.getElementById('in-identify-phone').value = '';
   document.getElementById('in-identify-dob').value = '';
+  document.getElementById('in-identify-password').value = '';
   document.getElementById('in-identify-name').value = '';
   document.getElementById('in-identify-nationalid').value = '';
   document.getElementById('identify-register-fields').style.display = 'none';
+  document.querySelector('.identify-mode-toggle').style.display = 'flex';
   document.getElementById('identify-error').style.display = 'none';
+  setIdentifyLoginMode('dob');
   document.getElementById('identify-modal-overlay').classList.add('show');
 }
 
@@ -1926,16 +1953,28 @@ document.getElementById('btn-identify-cancel').onclick = ()=>{
 
 document.getElementById('btn-identify-show-register').onclick = ()=>{
   document.getElementById('identify-register-fields').style.display = 'block';
+  document.querySelector('.identify-mode-toggle').style.display = 'none';
+  setIdentifyLoginMode('dob');
 };
+
+document.getElementById('btn-identify-mode-dob').onclick = ()=> setIdentifyLoginMode('dob');
+document.getElementById('btn-identify-mode-password').onclick = ()=> setIdentifyLoginMode('password');
 
 document.getElementById('btn-identify-login').onclick = async ()=>{
   const phone = document.getElementById('in-identify-phone').value.trim();
-  const dob = document.getElementById('in-identify-dob').value.trim();
   document.getElementById('identify-error').style.display = 'none';
-  if(!phone || !dob){ showIdentifyError('กรุณากรอกเบอร์โทรศัพท์และวันเกิด'); return; }
-  const parsedDob = parseThaiDob(dob);
-  if(!parsedDob){ showIdentifyError('กรุณากรอกวันเกิดให้ถูกต้อง รูปแบบ วว ดด ปปปป (พ.ศ.) รวม 8 หลัก เช่น 15032533'); return; }
-  const password = parsedDob.password;
+  if(!phone){ showIdentifyError('กรุณากรอกเบอร์โทรศัพท์'); return; }
+  let password;
+  if(identifyLoginMode === 'dob'){
+    const dob = document.getElementById('in-identify-dob').value.trim();
+    if(!dob){ showIdentifyError('กรุณากรอกวันเกิด'); return; }
+    const parsedDob = parseThaiDob(dob);
+    if(!parsedDob){ showIdentifyError('กรุณากรอกวันเกิดให้ถูกต้อง รูปแบบ วว ดด ปปปป (พ.ศ.) รวม 8 หลัก เช่น 15032533'); return; }
+    password = parsedDob.password;
+  } else {
+    password = document.getElementById('in-identify-password').value;
+    if(!password){ showIdentifyError('กรุณากรอกรหัสผ่าน'); return; }
+  }
   try{
     const res = await fetch('/api/auth/login', {
       method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
@@ -1955,7 +1994,8 @@ document.getElementById('btn-identify-login').onclick = async ()=>{
         renderPlotDetailInfo();
       }
     } else {
-      showIdentifyError('ไม่พบข้อมูล หรือวันเกิดไม่ตรง ถ้ายังไม่เคยลงทะเบียนกดปุ่มด้านล่าง');
+      const reason = identifyLoginMode === 'dob' ? 'วันเกิดไม่ตรง' : 'รหัสผ่านไม่ถูกต้อง';
+      showIdentifyError(`ไม่พบข้อมูล หรือ${reason} ถ้ายังไม่เคยลงทะเบียนกดปุ่มด้านล่าง`);
     }
   }catch(e){
     showIdentifyError('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต');
