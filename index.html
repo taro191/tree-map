@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.36</title>
+<title>ระบบแผนที่ต้นไม้ v1.37</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -308,13 +308,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.36</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.37</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.36</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.37</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -1615,8 +1615,14 @@ function addPathToLayer(p, plotTrees){
 function renderMarkers(){
   markerLayer.clearLayers();
 
-  // หน้าหลัก: ไม่แสดงหมุดต้นไม้/จุดอ้างอิงเลย แสดงแค่ขอบเขตแปลง (renderBoundaries)
-  if(currentView === 'home') return;
+  // หน้าหลัก: แสดงเฉพาะหมุดจุดอ้างอิงของทุกแปลงที่มองเห็นได้ ไม่แสดงหมุดต้นไม้/เส้นทาง
+  if(currentView === 'home'){
+    plots.forEach(p=>{
+      if(!p.refPoint || !isPlotVisibleToUser(p)) return;
+      addRefMarkerToLayer(p);
+    });
+    return;
+  }
 
   const scopedToSelectedPlot = (currentView === 'plot-detail' || currentView === 'trees');
 
