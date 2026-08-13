@@ -9,6 +9,7 @@ import Plots from './pages/Plots';
 import Trees from './pages/Trees';
 import Users from './pages/Users';
 import CommunityEnterprises from './pages/CommunityEnterprises';
+import Purposes from './pages/Purposes';
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/trees" element={<ProtectedRoute><AdminLayout><Trees /></AdminLayout></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute requireAdmin><AdminLayout><Users /></AdminLayout></ProtectedRoute>} />
           <Route path="/community-enterprises" element={<ProtectedRoute><AdminLayout><CommunityEnterprises /></AdminLayout></ProtectedRoute>} />
+          <Route path="/purposes" element={<ProtectedRoute requireAdmin><AdminLayout><Purposes /></AdminLayout></ProtectedRoute>} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

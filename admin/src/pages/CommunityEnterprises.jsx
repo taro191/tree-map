@@ -11,6 +11,7 @@ export default function CommunityEnterprises() {
   const [entities, setEntities] = useState([]);
   const [users, setUsers] = useState([]);
   const [plots, setPlots] = useState([]);
+  const [purposes, setPurposes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [newName, setNewName] = useState('');
@@ -20,10 +21,11 @@ export default function CommunityEnterprises() {
     setLoading(true);
     setError('');
     try {
-      const [e, u, p] = await Promise.all([api.listCommunityEnterprises(), api.listUsers(), api.listPlots()]);
+      const [e, u, p, pu] = await Promise.all([api.listCommunityEnterprises(), api.listUsers(), api.listPlots(), api.listPurposes()]);
       setEntities(e);
       setUsers(u);
       setPlots(p);
+      setPurposes(pu);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -116,6 +118,7 @@ export default function CommunityEnterprises() {
                 entity={entity}
                 users={users}
                 plots={plots}
+                purposes={purposes}
                 canDelete={isAdmin}
                 onSave={saveEntity}
                 onDelete={deleteEntity}

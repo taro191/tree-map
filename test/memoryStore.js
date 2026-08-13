@@ -4,6 +4,7 @@ function createMemoryStore() {
   const users = new Map();
   const communityEnterprises = new Map();
   const communityEnterpriseMembers = new Map(); // key: `${entityId}:${userId}`
+  const purposes = new Map();
 
   return {
     async initSchema() {},
@@ -136,6 +137,23 @@ function createMemoryStore() {
     },
     async removeCommunityEnterpriseMember(entityId, userId) {
       communityEnterpriseMembers.delete(`${entityId}:${userId}`);
+    },
+    async listPurposes() {
+      return [...purposes.values()].sort((a, b) => a.name.localeCompare(b.name));
+    },
+    async upsertPurpose(purpose) {
+      const saved = { id: purpose.id, name: purpose.name, createdAt: purposes.get(purpose.id)?.createdAt || new Date().toISOString() };
+      purposes.set(purpose.id, saved);
+      return saved;
+    },
+    async deletePurpose(id) {
+      purposes.delete(id);
+      for (const plot of plots.values()) {
+        if (plot.purposeId === id) plot.purposeId = null;
+      }
+      for (const entity of communityEnterprises.values()) {
+        if (entity.purposeId === id) entity.purposeId = null;
+      }
     }
   };
 }

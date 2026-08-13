@@ -18,6 +18,7 @@ export default function Plots() {
   const [plots, setPlots] = useState([]);
   const [trees, setTrees] = useState([]);
   const [entities, setEntities] = useState([]);
+  const [purposes, setPurposes] = useState([]);
   const [selectedPlotId, setSelectedPlotId] = useState(null);
   const [activeTab, setActiveTab] = useState('map');
   const [loading, setLoading] = useState(true);
@@ -31,10 +32,11 @@ export default function Plots() {
     setLoading(true);
     setError('');
     try {
-      const [p, t, e] = await Promise.all([api.listPlots(), api.listTrees(), api.listCommunityEnterprises()]);
+      const [p, t, e, pu] = await Promise.all([api.listPlots(), api.listTrees(), api.listCommunityEnterprises(), api.listPurposes()]);
       setPlots(p);
       setTrees(t);
       setEntities(e);
+      setPurposes(pu);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -161,7 +163,7 @@ export default function Plots() {
             </div>
           ) : (
             <PlotsTable
-              plots={filteredPlots} trees={filteredTrees} selectedPlotId={selectedPlotId}
+              plots={filteredPlots} trees={filteredTrees} purposes={purposes} selectedPlotId={selectedPlotId}
               onSelectPlot={id => setSelectedPlotId(prev => prev === id ? null : id)}
               onSave={savePlot} onDelete={deletePlot} onUpdateStatus={updatePlotStatus}
             />

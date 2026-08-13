@@ -348,6 +348,37 @@ function createApp(store) {
     } catch (err) { next(err); }
   });
 
+  app.get('/api/admin/purposes', requireAdminOrEnterpriseAdmin, async (req, res, next) => {
+    try {
+      res.json(await store.listPurposes());
+    } catch (err) { next(err); }
+  });
+
+  app.post('/api/admin/purposes', requireAdmin, async (req, res, next) => {
+    try {
+      const name = (req.body && req.body.name || '').trim();
+      if (!name) return res.status(400).json({ error: 'name is required' });
+      const purpose = await store.upsertPurpose({ id: crypto.randomUUID(), name });
+      res.status(201).json(purpose);
+    } catch (err) { next(err); }
+  });
+
+  app.put('/api/admin/purposes/:id', requireAdmin, async (req, res, next) => {
+    try {
+      const name = (req.body && req.body.name || '').trim();
+      if (!name) return res.status(400).json({ error: 'name is required' });
+      const purpose = await store.upsertPurpose({ id: req.params.id, name });
+      res.json(purpose);
+    } catch (err) { next(err); }
+  });
+
+  app.delete('/api/admin/purposes/:id', requireAdmin, async (req, res, next) => {
+    try {
+      await store.deletePurpose(req.params.id);
+      res.status(204).end();
+    } catch (err) { next(err); }
+  });
+
   function scopePlotsForUser(req, plots) {
     if (req.user.role !== 'enterprise_admin') return plots;
     return plots.filter(p => p.communityEnterpriseId === req.user.managedCommunityEnterpriseId);

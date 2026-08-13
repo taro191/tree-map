@@ -21,7 +21,7 @@ function fileToDataUrl(file) {
   });
 }
 
-export default function CommunityEnterpriseCard({ entity, users, plots, canDelete = true, onSave, onDelete, onAddMember, onRemoveMember, onLinkPlot, onUnlinkPlot }) {
+export default function CommunityEnterpriseCard({ entity, users, plots, purposes = [], canDelete = true, onSave, onDelete, onAddMember, onRemoveMember, onLinkPlot, onUnlinkPlot }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({});
   const [busy, setBusy] = useState(false);
@@ -29,6 +29,7 @@ export default function CommunityEnterpriseCard({ entity, users, plots, canDelet
   const [newMemberId, setNewMemberId] = useState('');
   const [newPlotId, setNewPlotId] = useState('');
 
+  const purposesById = new Map(purposes.map(p => [p.id, p.name]));
   const memberIds = new Set(entity.members.map(m => m.id));
   const availableUsers = users.filter(u => !memberIds.has(u.id));
   const linkedPlots = plots.filter(p => p.communityEnterpriseId === entity.id);
@@ -165,7 +166,17 @@ export default function CommunityEnterpriseCard({ entity, users, plots, canDelet
             ))}
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-500">วัตถุประสงค์/ประเภทกิจการ</label>
+            <label className="mb-1 block text-xs font-semibold text-slate-500">วัตถุประสงค์หลัก</label>
+            <select
+              value={draft.purposeId || ''} onChange={e => setDraft({ ...draft, purposeId: e.target.value || null })}
+              className="w-full rounded border border-stone-300 px-2 py-1 text-xs"
+            >
+              <option value="">- ไม่ระบุ -</option>
+              {purposes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-500">รายละเอียดวัตถุประสงค์</label>
             <textarea
               value={draft.purpose || ''} onChange={e => setDraft({ ...draft, purpose: e.target.value })}
               rows={2} className="w-full rounded border border-stone-300 px-2 py-1 text-xs"
@@ -189,6 +200,9 @@ export default function CommunityEnterpriseCard({ entity, users, plots, canDelet
           <p className="mt-1 text-xs text-slate-500">
             {[entity.chairperson && `ประธาน: ${entity.chairperson}`, entity.contactPhone, entity.registeredDate].filter(Boolean).join(' · ')}
           </p>
+          {entity.purposeId && purposesById.has(entity.purposeId) && (
+            <p className="mt-1 text-xs font-semibold text-emerald-700">🎯 {purposesById.get(entity.purposeId)}</p>
+          )}
           {entity.purpose && <p className="mt-1 text-xs text-slate-600">{entity.purpose}</p>}
 
           <div className="mt-3 grid gap-4 sm:grid-cols-2">

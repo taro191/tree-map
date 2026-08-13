@@ -32,6 +32,7 @@ function createPgStore(connectionString) {
       photo: row.photo,
       docPhoto: row.doc_photo,
       communityEnterpriseId: row.community_enterprise_id,
+      purposeId: row.purpose_id,
       createdBy: row.created_by,
       status: row.status,
       reviewNote: row.review_note,
@@ -66,14 +67,15 @@ function createPgStore(connectionString) {
 
   async function upsertPlot(plot) {
     const { rows } = await pool.query(
-      `INSERT INTO plots (id, name, owner_name, owner_contact, doc_title, area_rai, area_ngan, area_wa, subdistrict, district, province, postcode, color, boundary, photo, doc_photo, community_enterprise_id, ref_lat, ref_lng, ref_description, ref_photos, created_by, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+      `INSERT INTO plots (id, name, owner_name, owner_contact, doc_title, area_rai, area_ngan, area_wa, subdistrict, district, province, postcode, color, boundary, photo, doc_photo, community_enterprise_id, purpose_id, ref_lat, ref_lng, ref_description, ref_photos, created_by, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
        ON CONFLICT (id) DO UPDATE SET
          name=EXCLUDED.name, owner_name=EXCLUDED.owner_name, owner_contact=EXCLUDED.owner_contact,
          doc_title=EXCLUDED.doc_title, area_rai=EXCLUDED.area_rai, area_ngan=EXCLUDED.area_ngan,
          area_wa=EXCLUDED.area_wa, subdistrict=EXCLUDED.subdistrict, district=EXCLUDED.district, province=EXCLUDED.province,
          postcode=EXCLUDED.postcode, color=EXCLUDED.color, boundary=EXCLUDED.boundary,
          photo=EXCLUDED.photo, doc_photo=EXCLUDED.doc_photo, community_enterprise_id=EXCLUDED.community_enterprise_id,
+         purpose_id=EXCLUDED.purpose_id,
          ref_lat=EXCLUDED.ref_lat, ref_lng=EXCLUDED.ref_lng,
          ref_description=EXCLUDED.ref_description, ref_photos=EXCLUDED.ref_photos
        RETURNING *`,
@@ -81,7 +83,7 @@ function createPgStore(connectionString) {
        plot.areaRai || null, plot.areaNgan || null, plot.areaWa || null, plot.subdistrict || null,
        plot.district || null, plot.province || null, plot.postcode || null, plot.color || null,
        JSON.stringify(plot.boundary || []), plot.photo || null, plot.docPhoto || null,
-       plot.communityEnterpriseId || null,
+       plot.communityEnterpriseId || null, plot.purposeId || null,
        plot.refPoint ? plot.refPoint.lat : null, plot.refPoint ? plot.refPoint.lng : null,
        plot.refPoint ? (plot.refPoint.description || null) : null,
        JSON.stringify(plot.refPoint ? (plot.refPoint.photos || []) : []),
@@ -221,6 +223,7 @@ function createPgStore(connectionString) {
       chairperson: row.chairperson,
       contactPhone: row.contact_phone,
       purpose: row.purpose,
+      purposeId: row.purpose_id,
       documentPhoto: row.document_photo,
       createdAt: row.created_at
     };
@@ -233,17 +236,17 @@ function createPgStore(connectionString) {
 
   async function upsertCommunityEnterprise(entity) {
     const { rows } = await pool.query(
-      `INSERT INTO community_enterprises (id, name, registration_no, district, province, postcode, registered_date, chairperson, contact_phone, purpose, document_photo)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      `INSERT INTO community_enterprises (id, name, registration_no, district, province, postcode, registered_date, chairperson, contact_phone, purpose, purpose_id, document_photo)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
        ON CONFLICT (id) DO UPDATE SET
          name=EXCLUDED.name, registration_no=EXCLUDED.registration_no, district=EXCLUDED.district,
          province=EXCLUDED.province, postcode=EXCLUDED.postcode, registered_date=EXCLUDED.registered_date,
          chairperson=EXCLUDED.chairperson, contact_phone=EXCLUDED.contact_phone, purpose=EXCLUDED.purpose,
-         document_photo=EXCLUDED.document_photo
+         purpose_id=EXCLUDED.purpose_id, document_photo=EXCLUDED.document_photo
        RETURNING *`,
       [entity.id, entity.name, entity.registrationNo || null, entity.district || null, entity.province || null,
        entity.postcode || null, entity.registeredDate || null, entity.chairperson || null,
-       entity.contactPhone || null, entity.purpose || null, entity.documentPhoto || null]
+       entity.contactPhone || null, entity.purpose || null, entity.purposeId || null, entity.documentPhoto || null]
     );
     return communityEnterpriseRowToObj(rows[0]);
   }
@@ -285,6 +288,29 @@ function createPgStore(connectionString) {
     );
   }
 
+  function purposeRowToObj(row) {
+    return { id: row.id, name: row.name, createdAt: row.created_at };
+  }
+
+  async function listPurposes() {
+    const { rows } = await pool.query('SELECT * FROM purposes ORDER BY name ASC');
+    return rows.map(purposeRowToObj);
+  }
+
+  async function upsertPurpose(purpose) {
+    const { rows } = await pool.query(
+      `INSERT INTO purposes (id, name) VALUES ($1,$2)
+       ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name
+       RETURNING *`,
+      [purpose.id, purpose.name]
+    );
+    return purposeRowToObj(rows[0]);
+  }
+
+  async function deletePurpose(id) {
+    await pool.query('DELETE FROM purposes WHERE id = $1', [id]);
+  }
+
   return {
     pool, initSchema, listPlots, upsertPlot, deletePlot, findPlotById, updatePlotStatus, bumpPlotToTreeSurvey,
     listTrees, upsertTree, deleteTree, findTreeById,
@@ -292,7 +318,8 @@ function createPgStore(connectionString) {
     findUserByEmail, findUserByPhone, findUserByNationalId, findUserById, listUsers,
     listCommunityEnterprises, upsertCommunityEnterprise, deleteCommunityEnterprise,
     countCommunityEnterpriseMembers, listCommunityEnterpriseMembers,
-    addCommunityEnterpriseMember, removeCommunityEnterpriseMember
+    addCommunityEnterpriseMember, removeCommunityEnterpriseMember,
+    listPurposes, upsertPurpose, deletePurpose
   };
 }
 

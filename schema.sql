@@ -93,3 +93,12 @@ ALTER TABLE plots ADD COLUMN IF NOT EXISTS review_photos JSONB;
 -- every boot since it only ever touches rows still sitting at the default data_entry status.
 UPDATE plots SET status = 'tree_survey'
 WHERE status = 'data_entry' AND EXISTS (SELECT 1 FROM trees WHERE trees.plot_id = plots.id);
+
+CREATE TABLE IF NOT EXISTS purposes (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE plots ADD COLUMN IF NOT EXISTS purpose_id TEXT REFERENCES purposes(id) ON DELETE SET NULL;
+ALTER TABLE community_enterprises ADD COLUMN IF NOT EXISTS purpose_id TEXT REFERENCES purposes(id) ON DELETE SET NULL;

@@ -41,5 +41,10 @@ export const api = {
   saveCommunityEnterprise: (entity) => request(`/api/admin/community-enterprises/${encodeURIComponent(entity.id)}`, { method: 'PUT', body: JSON.stringify(entity) }),
   deleteCommunityEnterprise: (id) => request(`/api/admin/community-enterprises/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   addCommunityEnterpriseMember: (entityId, userId) => request(`/api/admin/community-enterprises/${encodeURIComponent(entityId)}/members`, { method: 'POST', body: JSON.stringify({ userId }) }),
-  removeCommunityEnterpriseMember: (entityId, userId) => request(`/api/admin/community-enterprises/${encodeURIComponent(entityId)}/members/${encodeURIComponent(userId)}`, { method: 'DELETE' })
+  removeCommunityEnterpriseMember: (entityId, userId) => request(`/api/admin/community-enterprises/${encodeURIComponent(entityId)}/members/${encodeURIComponent(userId)}`, { method: 'DELETE' }),
+
+  listPurposes: () => request('/api/admin/purposes'),
+  addPurpose: (name) => request('/api/admin/purposes', { method: 'POST', body: JSON.stringify({ name }) }),
+  updatePurpose: (id, name) => request(`/api/admin/purposes/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify({ name }) }),
+  deletePurpose: (id) => request(`/api/admin/purposes/${encodeURIComponent(id)}`, { method: 'DELETE' })
 };

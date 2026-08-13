@@ -7,7 +7,8 @@ const NAV_ITEMS = [
   { to: '/plots', label: 'แปลงต้นไม้', icon: '📍' },
   { to: '/trees', label: 'ต้นไม้', icon: '🌳' },
   { to: '/users', label: 'ผู้ใช้งาน', icon: '👥', adminOnly: true },
-  { to: '/community-enterprises', label: 'วิสาหกิจชุมชน', icon: '🏢' }
+  { to: '/community-enterprises', label: 'วิสาหกิจชุมชน', icon: '🏢' },
+  { to: '/purposes', label: 'วัตถุประสงค์', icon: '🎯', adminOnly: true }
 ];
 
 const ROLE_BADGE = {

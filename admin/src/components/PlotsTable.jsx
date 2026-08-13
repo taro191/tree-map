@@ -36,11 +36,12 @@ function StatusBadge({ status }) {
   );
 }
 
-export default function PlotsTable({ plots, trees, selectedPlotId, onSelectPlot, onSave, onDelete, onUpdateStatus }) {
+export default function PlotsTable({ plots, trees, purposes = [], selectedPlotId, onSelectPlot, onSave, onDelete, onUpdateStatus }) {
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState({});
   const [busyId, setBusyId] = useState(null);
   const [reviewingPlot, setReviewingPlot] = useState(null);
+  const purposesById = new Map(purposes.map(p => [p.id, p.name]));
 
   function startEdit(plot) {
     setEditingId(plot.id);
@@ -69,11 +70,12 @@ export default function PlotsTable({ plots, trees, selectedPlotId, onSelectPlot,
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[1000px] text-sm">
+      <table className="w-full min-w-[1100px] text-sm">
         <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase text-slate-500">
           <tr>
             <th className="px-3 py-2">สถานะ</th>
             {FIELDS.map(([key, label]) => <th key={key} className="px-3 py-2">{label}</th>)}
+            <th className="px-3 py-2">วัตถุประสงค์</th>
             <th className="px-3 py-2">ต้นไม้</th>
             <th className="px-3 py-2">จัดการ</th>
           </tr>
@@ -102,6 +104,18 @@ export default function PlotsTable({ plots, trees, selectedPlotId, onSelectPlot,
                     ) : (p[key] || '-')}
                   </td>
                 ))}
+                <td className="px-3 py-2" onClick={e => isEditing && e.stopPropagation()}>
+                  {isEditing ? (
+                    <select
+                      value={draft.purposeId || ''}
+                      onChange={e => setDraft({ ...draft, purposeId: e.target.value || null })}
+                      className="w-32 rounded border border-stone-300 px-1.5 py-1 text-xs"
+                    >
+                      <option value="">-</option>
+                      {purposes.map(pu => <option key={pu.id} value={pu.id}>{pu.name}</option>)}
+                    </select>
+                  ) : (purposesById.get(p.purposeId) || '-')}
+                </td>
                 <td className="px-3 py-2">{treeCount}</td>
                 <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
                   {isEditing ? (
@@ -125,7 +139,7 @@ export default function PlotsTable({ plots, trees, selectedPlotId, onSelectPlot,
             );
           })}
           {plots.length === 0 && (
-            <tr><td colSpan={FIELDS.length + 3} className="px-3 py-6 text-center text-slate-400">ยังไม่มีแปลง</td></tr>
+            <tr><td colSpan={FIELDS.length + 4} className="px-3 py-6 text-center text-slate-400">ยังไม่มีแปลง</td></tr>
           )}
         </tbody>
       </table>
