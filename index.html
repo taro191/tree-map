@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.21</title>
+<title>ระบบแผนที่ต้นไม้ v1.22</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -284,13 +284,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.21</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.22</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.21</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.22</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -1003,10 +1003,10 @@ async function handleTreeModalPhotoFile(file, kind){
 }
 
 let userMarker = null;
-function locateUser(onDone){
+function locateUser(onDone, silent){
   const btn = document.getElementById('gps-btn');
   if(!navigator.geolocation){
-    alert('เบราว์เซอร์นี้ไม่รองรับ GPS');
+    if(!silent) alert('เบราว์เซอร์นี้ไม่รองรับ GPS');
     return;
   }
   btn.classList.add('loading');
@@ -1022,7 +1022,7 @@ function locateUser(onDone){
     },
     (err)=>{
       btn.classList.remove('loading');
-      alert('ไม่สามารถอ่านตำแหน่ง GPS ได้: ' + err.message + ' (ต้องอนุญาตการเข้าถึงตำแหน่งและใช้งานผ่าน HTTPS)');
+      if(!silent) alert('ไม่สามารถอ่านตำแหน่ง GPS ได้: ' + err.message + ' (ต้องอนุญาตการเข้าถึงตำแหน่งและใช้งานผ่าน HTTPS)');
     },
     {enableHighAccuracy:true, timeout:12000, maximumAge:0}
   );
@@ -1810,6 +1810,7 @@ document.getElementById('btn-identify-login').onclick = async ()=>{
       prefillOwnerFromIdentity();
       updateAuthMenuLabel();
       renderAll();
+      locateUser(null, true);
       document.getElementById('identify-modal-overlay').classList.remove('show');
       if(identifyModalPurpose === 'add-plot'){
         setView('plot-form');
@@ -1846,6 +1847,7 @@ document.getElementById('btn-identify-register').onclick = async ()=>{
       prefillOwnerFromIdentity();
       updateAuthMenuLabel();
       renderAll();
+      locateUser(null, true);
       document.getElementById('identify-modal-overlay').classList.remove('show');
       if(identifyModalPurpose === 'add-plot'){
         setView('plot-form');
@@ -2141,6 +2143,7 @@ window.addEventListener('unhandledrejection', (e)=>{
     await loadData();
     await refreshAuthMenuState();
     renderAll();
+    if(currentView === 'home') locateUser(null, true);
   }catch(err){
     console.error('เริ่มระบบล้มเหลว:', err);
     showMapError('เกิดข้อผิดพลาดตอนเริ่มระบบ: ' + err.message);
