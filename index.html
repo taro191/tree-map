@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.33</title>
+<title>ระบบแผนที่ต้นไม้ v1.34</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -308,13 +308,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.33</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.34</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.33</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.34</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -544,7 +544,8 @@
 <script>window.__leafletFailed = false;</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" onerror="window.__leafletFailed=true;"></script>
 <script>
-const COLORS = ['#3D6B4A','#A6612E','#4A6FA5','#8A4F9E','#B5533C','#5A8A6B','#C08A2E','#3F7C7C'];
+const COLORS = ['#C0392B','#A6612E','#4A6FA5','#8A4F9E','#B5533C','#C2185B','#C08A2E','#3F7C7C'];
+const PATH_LINE_COLOR = '#2563EB';
 const SATELLITE_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 const SATELLITE_ATTRIBUTION = 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community';
 const PLOT_STATUS_LABELS = {
@@ -1602,7 +1603,7 @@ function renderMarkers(){
       const plotTrees = trees.filter(t=>t.plotId===p.id);
       const path = plotPathLatLngs(p, plotTrees);
       if(path.length >= 2){
-        L.polyline(path, {color:p.color, weight:2.5, opacity:0.8, dashArray:'6,6'}).addTo(markerLayer);
+        L.polyline(path, {color:PATH_LINE_COLOR, weight:3, opacity:0.9, dashArray:'6,6'}).addTo(markerLayer);
       }
     });
   }
@@ -1665,7 +1666,7 @@ function renderPlotDetailMap(){
 
   const path = plotPathLatLngs(plot, plotTrees);
   if(path.length >= 2){
-    L.polyline(path, {color:plot.color, weight:2.5, opacity:0.8, dashArray:'6,6'}).addTo(plotDetailMap);
+    L.polyline(path, {color:PATH_LINE_COLOR, weight:3, opacity:0.9, dashArray:'6,6'}).addTo(plotDetailMap);
   }
 
   const bounds = L.latLngBounds(latlngs);
