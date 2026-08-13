@@ -105,6 +105,9 @@ function createMemoryStore() {
     async listCommunityEnterprises() {
       return [...communityEnterprises.values()];
     },
+    async findCommunityEnterpriseById(id) {
+      return communityEnterprises.get(id) || null;
+    },
     async upsertCommunityEnterprise(entity) {
       const saved = { ...entity };
       communityEnterprises.set(entity.id, saved);

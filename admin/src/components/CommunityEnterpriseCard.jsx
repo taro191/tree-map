@@ -21,7 +21,7 @@ function fileToDataUrl(file) {
   });
 }
 
-export default function CommunityEnterpriseCard({ entity, users, plots, purposes = [], canDelete = true, onSave, onDelete, onAddMember, onRemoveMember, onLinkPlot, onUnlinkPlot }) {
+export default function CommunityEnterpriseCard({ entity, users, plots, purposes = [], canDelete = true, onSave, onDelete, onAddMember, onRemoveMember, onLinkPlot, onUnlinkPlot, onApprovePlot }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({});
   const [busy, setBusy] = useState(false);
@@ -32,8 +32,10 @@ export default function CommunityEnterpriseCard({ entity, users, plots, purposes
   const purposesById = new Map(purposes.map(p => [p.id, p.name]));
   const memberIds = new Set(entity.members.map(m => m.id));
   const availableUsers = users.filter(u => !memberIds.has(u.id));
-  const linkedPlots = plots.filter(p => p.communityEnterpriseId === entity.id);
-  const unlinkedPlots = plots.filter(p => !p.communityEnterpriseId);
+  const pendingPlots = plots.filter(p => p.communityEnterpriseId === entity.id && p.communityEnterpriseStatus === 'pending');
+  const linkedPlots = plots.filter(p => p.communityEnterpriseId === entity.id && p.communityEnterpriseStatus === 'approved');
+  // เลือกแปลงมาผูกเองได้เฉพาะที่วัตถุประสงค์ตรงกับกลุ่ม (ทั้งคู่ไม่ระบุ ถือว่าตรงกันด้วย เพื่อไม่ตัดแปลง/กลุ่มเก่าที่ยังไม่มีวัตถุประสงค์ออก)
+  const unlinkedPlots = plots.filter(p => !p.communityEnterpriseId && (p.purposeId || null) === (entity.purposeId || null));
 
   function startEdit() {
     setDraft({ ...entity });
@@ -129,6 +131,18 @@ export default function CommunityEnterpriseCard({ entity, users, plots, purposes
     }
   }
 
+  async function approvePlot(plot) {
+    setBusy(true);
+    setError('');
+    try {
+      await onApprovePlot(entity.id, plot.id);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Card
       title={entity.name}
@@ -171,7 +185,7 @@ export default function CommunityEnterpriseCard({ entity, users, plots, purposes
               value={draft.purposeId || ''} onChange={e => setDraft({ ...draft, purposeId: e.target.value || null })}
               className="w-full rounded border border-stone-300 px-2 py-1 text-xs"
             >
-              <option value="">- ไม่ระบุ -</option>
+              <option value="">ยังไม่กำหนดวัตถุประสงค์</option>
               {purposes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
@@ -200,9 +214,9 @@ export default function CommunityEnterpriseCard({ entity, users, plots, purposes
           <p className="mt-1 text-xs text-slate-500">
             {[entity.chairperson && `ประธาน: ${entity.chairperson}`, entity.contactPhone, entity.registeredDate].filter(Boolean).join(' · ')}
           </p>
-          {entity.purposeId && purposesById.has(entity.purposeId) && (
-            <p className="mt-1 text-xs font-semibold text-emerald-700">🎯 {purposesById.get(entity.purposeId)}</p>
-          )}
+          <p className="mt-1 text-xs font-semibold text-emerald-700">
+            🎯 {entity.purposeId && purposesById.has(entity.purposeId) ? purposesById.get(entity.purposeId) : 'ยังไม่กำหนดวัตถุประสงค์'}
+          </p>
           {entity.purpose && <p className="mt-1 text-xs text-slate-600">{entity.purpose}</p>}
 
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
@@ -229,6 +243,22 @@ export default function CommunityEnterpriseCard({ entity, users, plots, purposes
             </div>
 
             <div>
+              {pendingPlots.length > 0 && (
+                <>
+                  <h4 className="mb-1 text-xs font-bold text-amber-700">🕐 รออนุมัติเข้าร่วม ({pendingPlots.length})</h4>
+                  <ul className="mb-3 divide-y divide-stone-100 text-xs">
+                    {pendingPlots.map(p => (
+                      <li key={p.id} className="flex items-center justify-between py-1">
+                        <span>{p.name}</span>
+                        <div className="flex gap-2">
+                          <button disabled={busy} onClick={() => approvePlot(p)} className="font-semibold text-emerald-700 hover:underline disabled:opacity-50">อนุมัติ</button>
+                          <button disabled={busy} onClick={() => unlinkPlot(p)} className="text-red-600 hover:underline disabled:opacity-50">ปฏิเสธ</button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
               <h4 className="mb-1 text-xs font-bold text-slate-600">แปลงที่ดินในกลุ่ม ({linkedPlots.length})</h4>
               <ul className="mb-2 divide-y divide-stone-100 text-xs">
                 {linkedPlots.map(p => (
@@ -241,7 +271,7 @@ export default function CommunityEnterpriseCard({ entity, users, plots, purposes
               </ul>
               <div className="flex gap-2">
                 <select value={newPlotId} onChange={e => setNewPlotId(e.target.value)} className="flex-1 rounded border border-stone-300 px-2 py-1 text-xs">
-                  <option value="">เลือกแปลงที่ยังไม่สังกัดกลุ่ม...</option>
+                  <option value="">เลือกแปลงที่ยังไม่สังกัดกลุ่ม (วัตถุประสงค์ตรงกัน)...</option>
                   {unlinkedPlots.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
                 <button

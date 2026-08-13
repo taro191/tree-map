@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.41</title>
+<title>ระบบแผนที่ต้นไม้ v1.42</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -308,13 +308,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.41</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.42</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.41</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.42</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -363,6 +363,15 @@
           <div class="field">
             <label>สีประจำแปลง</label>
             <div class="color-row" id="color-row"></div>
+          </div>
+          <div class="field">
+            <label>วัตถุประสงค์ (ถ้ามี)</label>
+            <select id="in-plot-purpose"></select>
+          </div>
+          <div class="field" id="plot-ce-field">
+            <label>ขอเข้าร่วมวิสาหกิจชุมชน (ถ้ามี)</label>
+            <select id="in-plot-ce"></select>
+            <div id="plot-ce-hint" style="font-size:11.5px;color:var(--muted);margin-top:4px;"></div>
           </div>
           <button class="btn" id="btn-add-plot">ถัดไป: วาดขอบเขตแปลง →</button>
         </div>
@@ -1149,6 +1158,57 @@ function renderColorRow(){
   });
 }
 
+let cachedPurposes = null;
+let cachedCommunityEnterprises = null;
+async function loadPurposesAndEntities(){
+  if(!cachedPurposes){
+    try{ cachedPurposes = await fetch('/api/purposes').then(r=>r.json()); }catch(e){ cachedPurposes = []; }
+  }
+  if(!cachedCommunityEnterprises){
+    try{ cachedCommunityEnterprises = await fetch('/api/community-enterprises').then(r=>r.json()); }catch(e){ cachedCommunityEnterprises = []; }
+  }
+  return { purposes: cachedPurposes, entities: cachedCommunityEnterprises };
+}
+
+// เติมช่องเลือก "วัตถุประสงค์" และ "วิสาหกิจชุมชนที่ตรงกัน" ให้ฟอร์มแปลง (ทั้งตอนสร้างใหม่และแก้ไข)
+// ใช้ตัวเดียวกันทั้งสองฟอร์ม ต่างกันแค่ id ของ element และค่าเริ่มต้น
+async function populatePurposeAndCeSelects(purposeSelectId, ceSelectId, ceHintId, currentPurposeId, currentCeId){
+  await loadPurposesAndEntities();
+  const purposeSelect = document.getElementById(purposeSelectId);
+  const ceSelect = document.getElementById(ceSelectId);
+  const ceHint = document.getElementById(ceHintId);
+  if(!purposeSelect || !ceSelect) return;
+
+  function fillCeOptions(){
+    const purposeId = purposeSelect.value;
+    if(!purposeId){
+      ceSelect.innerHTML = '<option value="">- ไม่เข้าร่วมกลุ่ม -</option>';
+      ceSelect.value = '';
+      ceSelect.disabled = true;
+      if(ceHint) ceHint.textContent = 'เลือกวัตถุประสงค์ก่อนเพื่อดูวิสาหกิจชุมชนที่เกี่ยวข้อง';
+      return;
+    }
+    const matches = cachedCommunityEnterprises.filter(e=>e.purposeId===purposeId);
+    ceSelect.disabled = false;
+    if(matches.length === 0){
+      ceSelect.innerHTML = '<option value="">- ไม่เข้าร่วมกลุ่ม -</option>';
+      ceSelect.value = '';
+      if(ceHint) ceHint.textContent = 'ยังไม่มีวิสาหกิจชุมชนที่มีวัตถุประสงค์นี้';
+      return;
+    }
+    ceSelect.innerHTML = '<option value="">- ไม่เข้าร่วมกลุ่ม -</option>' +
+      matches.map(e=>`<option value="${escapeAttr(e.id)}">${escapeHtml(e.name)}</option>`).join('');
+    ceSelect.value = matches.some(e=>e.id===currentCeId) ? currentCeId : '';
+    if(ceHint) ceHint.textContent = '';
+  }
+
+  purposeSelect.innerHTML = '<option value="">ยังไม่กำหนดวัตถุประสงค์</option>' +
+    cachedPurposes.map(p=>`<option value="${escapeAttr(p.id)}">${escapeHtml(p.name)}</option>`).join('');
+  purposeSelect.value = currentPurposeId || '';
+  purposeSelect.onchange = fillCeOptions;
+  fillCeOptions();
+}
+
 function isPlotVisibleToUser(plot){
   if(!identifiedUser) return false;
   return !plot.createdBy || plot.createdBy === identifiedUser.id;
@@ -1378,6 +1438,18 @@ function renderPlotDetailEditForm(el, plot){
       <label>สีประจำแปลง</label>
       <div class="color-row" id="edit-color-row"></div>
     </div>
+    <div class="field">
+      <label>วัตถุประสงค์ (ถ้ามี)</label>
+      <select id="edit-plot-purpose"></select>
+    </div>
+    <div class="field" id="edit-plot-ce-field">
+      <label>ขอเข้าร่วมวิสาหกิจชุมชน (ถ้ามี)</label>
+      <select id="edit-plot-ce"></select>
+      <div id="edit-plot-ce-hint" style="font-size:11.5px;color:var(--muted);margin-top:4px;"></div>
+      ${plot.communityEnterpriseId ? `<div style="font-size:12px;font-weight:600;margin-top:6px;color:${plot.communityEnterpriseStatus==='approved'?'var(--primary-dark)':'var(--bark)'};">
+        ${plot.communityEnterpriseStatus==='approved' ? '✅ เข้าร่วมกลุ่มแล้ว' : '🕐 รอกลุ่มอนุมัติการเข้าร่วม'}
+      </div>` : ''}
+    </div>
     <div style="display:flex;gap:8px;">
       <button class="btn" id="btn-save-plot-detail" style="flex:1;">บันทึก</button>
       <button class="btn secondary" id="btn-cancel-plot-detail" style="flex:1;">ยกเลิก</button>
@@ -1385,6 +1457,7 @@ function renderPlotDetailEditForm(el, plot){
   `;
   document.getElementById('edit-plot-postcode').addEventListener('focus', ()=> loadThaiZipIndex().catch(()=>{}));
   document.getElementById('edit-plot-postcode').addEventListener('input', ()=> handlePostcodeInputFor(EDIT_PLOT_ADDR_IDS));
+  populatePurposeAndCeSelects('edit-plot-purpose', 'edit-plot-ce', 'edit-plot-ce-hint', plot.purposeId, plot.communityEnterpriseId);
 
   let editColor = plot.color;
   function renderEditColorRow(){
@@ -1422,11 +1495,14 @@ function renderPlotDetailEditForm(el, plot){
       district: document.getElementById('edit-plot-district').value.trim(),
       province: document.getElementById('edit-plot-province').value.trim(),
       postcode: document.getElementById('edit-plot-postcode').value.trim(),
-      color: editColor
+      color: editColor,
+      purposeId: document.getElementById('edit-plot-purpose').value || null,
+      communityEnterpriseId: document.getElementById('edit-plot-ce').value || null
     };
-    try{ await apiSavePlot(updated); }catch(err){ alert(err.message); return; }
+    let saved;
+    try{ saved = await apiSavePlot(updated); }catch(err){ alert(err.message); return; }
     const idx = plots.findIndex(p=>p.id===plot.id);
-    if(idx>=0) plots[idx] = updated;
+    if(idx>=0) plots[idx] = saved;
     editingPlotDetail = false;
     renderAll();
   };
@@ -1758,6 +1834,9 @@ function setView(view){
   setSheetExpanded(true);
   if(view === 'plot-detail') renderPlotDetailInfo();
   if(view === 'plot-detail') renderPlotDetailMap();
+  if(view === 'plot-form' && !editingBoundaryPlotId){
+    populatePurposeAndCeSelects('in-plot-purpose', 'in-plot-ce', 'plot-ce-hint', null, null);
+  }
   renderMarkers();
   renderBoundaries();
   if(view === 'plot-detail' || view === 'trees') fitMainMapToSelectedPlot();
@@ -2181,9 +2260,12 @@ document.getElementById('btn-add-plot').onclick = ()=>{
   const postcode = document.getElementById('in-plot-postcode').value.trim();
   if(!name){ alert('กรุณากรอกชื่อแปลง'); return; }
   if(areaRai && Number(areaRai) > 30){ alert('เนื้อที่ไร่ ใส่ได้ไม่เกิน 30 ไร่'); return; }
+  const purposeId = document.getElementById('in-plot-purpose').value || null;
+  const communityEnterpriseId = document.getElementById('in-plot-ce').value || null;
   creatingPlot = {
     name, ownerName, ownerContact, docTitle, areaRai, areaNgan, areaWa,
-    subdistrict, district, province, postcode, color: editingColor, points: []
+    subdistrict, district, province, postcode, color: editingColor,
+    purposeId, communityEnterpriseId, points: []
   };
   boundaryMode = true;
   document.getElementById('plot-step-info').style.display = 'none';
@@ -2258,13 +2340,15 @@ document.getElementById('btn-save-boundary').onclick = async ()=>{
     subdistrict: creatingPlot.subdistrict, district: creatingPlot.district,
     province: creatingPlot.province, postcode: creatingPlot.postcode,
     photo: null, docPhoto: null, color: creatingPlot.color,
+    purposeId: creatingPlot.purposeId || null, communityEnterpriseId: creatingPlot.communityEnterpriseId || null,
     boundary: creatingPlot.points.slice(),
     createdBy: identifiedUser ? identifiedUser.id : null,
     status: 'data_entry', reviewNote: null, reviewPhotos: []
   };
-  try{ await apiSavePlot(plot); }catch(err){ alert(err.message); return; }
-  plots.push(plot);
-  selectedPlotId = plot.id;
+  let savedPlot;
+  try{ savedPlot = await apiSavePlot(plot); }catch(err){ alert(err.message); return; }
+  plots.push(savedPlot);
+  selectedPlotId = savedPlot.id;
   document.getElementById('in-plot-name').value='';
   prefillOwnerFromIdentity();
   document.getElementById('in-plot-doc').value='';

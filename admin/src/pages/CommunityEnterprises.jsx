@@ -72,8 +72,18 @@ export default function CommunityEnterprises() {
   }
 
   async function linkPlot(plot, entityId) {
+    // Admin picking a plot directly here is treated as an immediate approval (no waiting on
+    // the group's own review) -- link it (lands as 'pending' server-side), then approve right
+    // away, which also grants the plot's owner membership. Reload since approval touches both
+    // the plot's status and the group's member list.
     const saved = await api.savePlot({ ...plot, communityEnterpriseId: entityId });
-    setPlots(prev => prev.map(p => p.id === saved.id ? saved : p));
+    await api.approvePlotJoin(entityId, saved.id);
+    await reload();
+  }
+
+  async function approvePendingPlot(entityId, plotId) {
+    await api.approvePlotJoin(entityId, plotId);
+    await reload();
   }
 
   async function unlinkPlot(plot) {
@@ -126,6 +136,7 @@ export default function CommunityEnterprises() {
                 onRemoveMember={removeMember}
                 onLinkPlot={linkPlot}
                 onUnlinkPlot={unlinkPlot}
+                onApprovePlot={approvePendingPlot}
               />
             ))}
             {entities.length === 0 && <div className="py-8 text-center text-slate-400">ยังไม่มีวิสาหกิจชุมชน</div>}

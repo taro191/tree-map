@@ -32,6 +32,7 @@ function createPgStore(connectionString) {
       photo: row.photo,
       docPhoto: row.doc_photo,
       communityEnterpriseId: row.community_enterprise_id,
+      communityEnterpriseStatus: row.community_enterprise_status,
       purposeId: row.purpose_id,
       createdBy: row.created_by,
       status: row.status,
@@ -67,14 +68,15 @@ function createPgStore(connectionString) {
 
   async function upsertPlot(plot) {
     const { rows } = await pool.query(
-      `INSERT INTO plots (id, name, owner_name, owner_contact, doc_title, area_rai, area_ngan, area_wa, subdistrict, district, province, postcode, color, boundary, photo, doc_photo, community_enterprise_id, purpose_id, ref_lat, ref_lng, ref_description, ref_photos, created_by, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+      `INSERT INTO plots (id, name, owner_name, owner_contact, doc_title, area_rai, area_ngan, area_wa, subdistrict, district, province, postcode, color, boundary, photo, doc_photo, community_enterprise_id, community_enterprise_status, purpose_id, ref_lat, ref_lng, ref_description, ref_photos, created_by, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
        ON CONFLICT (id) DO UPDATE SET
          name=EXCLUDED.name, owner_name=EXCLUDED.owner_name, owner_contact=EXCLUDED.owner_contact,
          doc_title=EXCLUDED.doc_title, area_rai=EXCLUDED.area_rai, area_ngan=EXCLUDED.area_ngan,
          area_wa=EXCLUDED.area_wa, subdistrict=EXCLUDED.subdistrict, district=EXCLUDED.district, province=EXCLUDED.province,
          postcode=EXCLUDED.postcode, color=EXCLUDED.color, boundary=EXCLUDED.boundary,
          photo=EXCLUDED.photo, doc_photo=EXCLUDED.doc_photo, community_enterprise_id=EXCLUDED.community_enterprise_id,
+         community_enterprise_status=EXCLUDED.community_enterprise_status,
          purpose_id=EXCLUDED.purpose_id,
          ref_lat=EXCLUDED.ref_lat, ref_lng=EXCLUDED.ref_lng,
          ref_description=EXCLUDED.ref_description, ref_photos=EXCLUDED.ref_photos
@@ -83,7 +85,7 @@ function createPgStore(connectionString) {
        plot.areaRai || null, plot.areaNgan || null, plot.areaWa || null, plot.subdistrict || null,
        plot.district || null, plot.province || null, plot.postcode || null, plot.color || null,
        JSON.stringify(plot.boundary || []), plot.photo || null, plot.docPhoto || null,
-       plot.communityEnterpriseId || null, plot.purposeId || null,
+       plot.communityEnterpriseId || null, plot.communityEnterpriseStatus || null, plot.purposeId || null,
        plot.refPoint ? plot.refPoint.lat : null, plot.refPoint ? plot.refPoint.lng : null,
        plot.refPoint ? (plot.refPoint.description || null) : null,
        JSON.stringify(plot.refPoint ? (plot.refPoint.photos || []) : []),
@@ -234,6 +236,11 @@ function createPgStore(connectionString) {
     return rows.map(communityEnterpriseRowToObj);
   }
 
+  async function findCommunityEnterpriseById(id) {
+    const { rows } = await pool.query('SELECT * FROM community_enterprises WHERE id = $1', [id]);
+    return rows[0] ? communityEnterpriseRowToObj(rows[0]) : null;
+  }
+
   async function upsertCommunityEnterprise(entity) {
     const { rows } = await pool.query(
       `INSERT INTO community_enterprises (id, name, registration_no, district, province, postcode, registered_date, chairperson, contact_phone, purpose, purpose_id, document_photo)
@@ -316,7 +323,7 @@ function createPgStore(connectionString) {
     listTrees, upsertTree, deleteTree, findTreeById,
     createUser, updateUserRole, updateUserProfile, updateUserPassword,
     findUserByEmail, findUserByPhone, findUserByNationalId, findUserById, listUsers,
-    listCommunityEnterprises, upsertCommunityEnterprise, deleteCommunityEnterprise,
+    listCommunityEnterprises, upsertCommunityEnterprise, deleteCommunityEnterprise, findCommunityEnterpriseById,
     countCommunityEnterpriseMembers, listCommunityEnterpriseMembers,
     addCommunityEnterpriseMember, removeCommunityEnterpriseMember,
     listPurposes, upsertPurpose, deletePurpose

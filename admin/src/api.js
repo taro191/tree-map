@@ -42,6 +42,7 @@ export const api = {
   deleteCommunityEnterprise: (id) => request(`/api/admin/community-enterprises/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   addCommunityEnterpriseMember: (entityId, userId) => request(`/api/admin/community-enterprises/${encodeURIComponent(entityId)}/members`, { method: 'POST', body: JSON.stringify({ userId }) }),
   removeCommunityEnterpriseMember: (entityId, userId) => request(`/api/admin/community-enterprises/${encodeURIComponent(entityId)}/members/${encodeURIComponent(userId)}`, { method: 'DELETE' }),
+  approvePlotJoin: (entityId, plotId) => request(`/api/admin/community-enterprises/${encodeURIComponent(entityId)}/plots/${encodeURIComponent(plotId)}/approve`, { method: 'PATCH' }),
 
   listPurposes: () => request('/api/admin/purposes'),
   addPurpose: (name) => request('/api/admin/purposes', { method: 'POST', body: JSON.stringify({ name }) }),

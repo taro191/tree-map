@@ -111,10 +111,10 @@ export default function PlotsTable({ plots, trees, purposes = [], selectedPlotId
                       onChange={e => setDraft({ ...draft, purposeId: e.target.value || null })}
                       className="w-32 rounded border border-stone-300 px-1.5 py-1 text-xs"
                     >
-                      <option value="">-</option>
+                      <option value="">ยังไม่กำหนดวัตถุประสงค์</option>
                       {purposes.map(pu => <option key={pu.id} value={pu.id}>{pu.name}</option>)}
                     </select>
-                  ) : (purposesById.get(p.purposeId) || '-')}
+                  ) : (purposesById.get(p.purposeId) || 'ยังไม่กำหนดวัตถุประสงค์')}
                 </td>
                 <td className="px-3 py-2">{treeCount}</td>
                 <td className="px-3 py-2" onClick={e => e.stopPropagation()}>

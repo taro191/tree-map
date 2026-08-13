@@ -130,6 +130,19 @@ function createApp(store) {
     } catch (err) { next(err); }
   });
 
+  app.get('/api/purposes', async (req, res, next) => {
+    try {
+      res.json(await store.listPurposes());
+    } catch (err) { next(err); }
+  });
+
+  app.get('/api/community-enterprises', async (req, res, next) => {
+    try {
+      const entities = await store.listCommunityEnterprises();
+      res.json(entities.map(e => ({ id: e.id, name: e.name, purposeId: e.purposeId })));
+    } catch (err) { next(err); }
+  });
+
   app.put('/api/plots/:id', async (req, res, next) => {
     try {
       const name = (req.body && req.body.name || '').trim();
@@ -138,7 +151,31 @@ function createApp(store) {
       if (existing && LOCKED_PLOT_STATUSES.includes(existing.status)) {
         return res.status(409).json({ error: PLOT_LOCKED_MESSAGE });
       }
-      const plot = { ...req.body, id: req.params.id, name };
+
+      // A community-enterprise link is a join request, not an immediate membership: any
+      // NEW assignment (as opposed to leaving one unchanged) always lands as 'pending'
+      // here, ignoring whatever status the client sent -- the client can't self-approve
+      // through this public route. Only the dedicated admin approve endpoint can flip it
+      // to 'approved'. Unchanged assignments keep whatever status they already had.
+      const requestedCeId = (req.body && req.body.communityEnterpriseId) || null;
+      const existingCeId = existing ? existing.communityEnterpriseId : null;
+      const requestedPurposeId = (req.body && req.body.purposeId) || (existing ? existing.purposeId : null) || null;
+      let communityEnterpriseStatus = existing ? existing.communityEnterpriseStatus : null;
+
+      if (requestedCeId !== existingCeId) {
+        if (!requestedCeId) {
+          communityEnterpriseStatus = null;
+        } else {
+          const targetCe = await store.findCommunityEnterpriseById(requestedCeId);
+          if (!targetCe) return res.status(404).json({ error: 'community enterprise not found' });
+          if (requestedPurposeId !== (targetCe.purposeId || null)) {
+            return res.status(400).json({ error: 'วัตถุประสงค์ของแปลงต้องตรงกับวัตถุประสงค์ของวิสาหกิจชุมชนจึงจะขอเข้าร่วมกลุ่มได้' });
+          }
+          communityEnterpriseStatus = 'pending';
+        }
+      }
+
+      const plot = { ...req.body, id: req.params.id, name, communityEnterpriseId: requestedCeId, communityEnterpriseStatus };
       res.json(await store.upsertPlot(plot));
     } catch (err) { next(err); }
   });
@@ -345,6 +382,32 @@ function createApp(store) {
       if (!isOwnCommunityEnterprise(req, req.params.id)) return res.status(403).json({ error: 'forbidden' });
       await store.removeCommunityEnterpriseMember(req.params.id, req.params.userId);
       res.status(204).end();
+    } catch (err) { next(err); }
+  });
+
+  // Approving a plot's join request finalizes the plots.community_enterprise_status
+  // ('pending' -> 'approved') and, since a field worker only ever earns membership
+  // by having a matching-purpose plot approved, grants the plot's owner CE membership
+  // in the same step. The admin's own "link an existing plot directly" action reuses
+  // this endpoint too (called right after the plain PUT that lands it as pending) so
+  // both paths funnel through one place that grants membership.
+  app.patch('/api/admin/community-enterprises/:id/plots/:plotId/approve', requireAdminOrEnterpriseAdmin, async (req, res, next) => {
+    try {
+      if (!isOwnCommunityEnterprise(req, req.params.id)) return res.status(403).json({ error: 'forbidden' });
+      const plot = await store.findPlotById(req.params.plotId);
+      if (!plot) return res.status(404).json({ error: 'plot not found' });
+      if (plot.communityEnterpriseId !== req.params.id) {
+        return res.status(409).json({ error: 'แปลงนี้ไม่ได้ขอเข้าร่วมกลุ่มนี้' });
+      }
+      await store.upsertPlot({ ...plot, communityEnterpriseStatus: 'approved' });
+      if (plot.createdBy) {
+        await store.addCommunityEnterpriseMember(req.params.id, plot.createdBy);
+      }
+      const members = await store.listCommunityEnterpriseMembers(req.params.id);
+      res.json({
+        plot: await store.findPlotById(req.params.plotId),
+        members: members.map(u => ({ id: u.id, email: u.email, phone: u.phone }))
+      });
     } catch (err) { next(err); }
   });
 

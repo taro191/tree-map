@@ -102,3 +102,7 @@ CREATE TABLE IF NOT EXISTS purposes (
 
 ALTER TABLE plots ADD COLUMN IF NOT EXISTS purpose_id TEXT REFERENCES purposes(id) ON DELETE SET NULL;
 ALTER TABLE community_enterprises ADD COLUMN IF NOT EXISTS purpose_id TEXT REFERENCES purposes(id) ON DELETE SET NULL;
+
+-- Tracks whether a plot's community-enterprise link is a pending join request awaiting
+-- the group's approval, or already approved. NULL when the plot isn't linked to any group.
+ALTER TABLE plots ADD COLUMN IF NOT EXISTS community_enterprise_status TEXT;
