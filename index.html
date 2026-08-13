@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.32</title>
+<title>ระบบแผนที่ต้นไม้ v1.33</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -308,13 +308,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.32</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.33</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.32</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.33</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -1571,6 +1571,13 @@ function refFlagIcon(){
   });
 }
 
+function plotPathLatLngs(plot, plotTrees){
+  const points = [];
+  if(plot.refPoint) points.push([plot.refPoint.lat, plot.refPoint.lng]);
+  plotTrees.slice().sort((a,b)=>a.seq-b.seq).forEach(t=>points.push([t.lat,t.lng]));
+  return points;
+}
+
 function renderMarkers(){
   markerLayer.clearLayers();
   if(currentView !== 'home'){
@@ -1588,6 +1595,15 @@ function renderMarkers(){
           ${t.note?`<div class="pnote">${escapeHtml(t.note)}</div>`:''}
         </div>
       `);
+    });
+
+    plots.forEach(p=>{
+      if(!isPlotVisibleToUser(p)) return;
+      const plotTrees = trees.filter(t=>t.plotId===p.id);
+      const path = plotPathLatLngs(p, plotTrees);
+      if(path.length >= 2){
+        L.polyline(path, {color:p.color, weight:2.5, opacity:0.8, dashArray:'6,6'}).addTo(markerLayer);
+      }
     });
   }
 
@@ -1642,9 +1658,15 @@ function renderPlotDetailMap(){
   const latlngs = plot.boundary.map(pt=>[pt.lat,pt.lng]);
   L.polygon(latlngs, {color:plot.color, weight:3, fillColor:plot.color, fillOpacity:0.15}).addTo(plotDetailMap);
 
-  trees.filter(t=>t.plotId===plot.id).forEach(t=>{
+  const plotTrees = trees.filter(t=>t.plotId===plot.id);
+  plotTrees.forEach(t=>{
     L.marker([t.lat,t.lng], {icon: treeFlagIcon(t.seq)}).addTo(plotDetailMap);
   });
+
+  const path = plotPathLatLngs(plot, plotTrees);
+  if(path.length >= 2){
+    L.polyline(path, {color:plot.color, weight:2.5, opacity:0.8, dashArray:'6,6'}).addTo(plotDetailMap);
+  }
 
   const bounds = L.latLngBounds(latlngs);
   if(plot.refPoint){
