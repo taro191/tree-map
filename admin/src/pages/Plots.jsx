@@ -11,6 +11,7 @@ export default function Plots() {
   const [plots, setPlots] = useState([]);
   const [trees, setTrees] = useState([]);
   const [selectedPlotId, setSelectedPlotId] = useState(null);
+  const [activeTab, setActiveTab] = useState('map');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -56,10 +57,15 @@ export default function Plots() {
     setPlots(prev => prev.map(p => p.id === updated.id ? updated : p));
   }
 
+  const tabs = [
+    { id: 'map', label: '🗺️ แผนที่' },
+    { id: 'table', label: `📋 ตาราง (${scopedPlots.length})` }
+  ];
+
   return (
     <div>
       <PageHeader
-        title="แปลงที่ดิน"
+        title="แปลงต้นไม้"
         subtitle={`ทั้งหมด ${scopedPlots.length} แปลง`}
         actions={
           <a href="/api/admin/export/plots.csv" className="rounded border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-emerald-600 hover:text-emerald-700">📥 Export แปลง (CSV)</a>
@@ -71,21 +77,35 @@ export default function Plots() {
       {loading ? (
         <div className="py-16 text-center text-slate-400">กำลังโหลดข้อมูล...</div>
       ) : (
-        <div className="space-y-5">
-          <Card title="แผนที่แปลงที่ดิน" noPadding>
-            <div className="h-96">
+        <Card noPadding>
+          <div className="flex border-b border-gray-200 bg-gray-50">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2.5 text-sm font-bold transition-colors ${
+                  activeTab === tab.id
+                    ? 'border-b-2 border-emerald-600 text-emerald-700'
+                    : 'border-b-2 border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {activeTab === 'map' ? (
+            <div className="h-[34rem]">
               <MapView plots={scopedPlots} trees={scopedTrees} selectedPlotId={selectedPlotId} onSelectPlot={setSelectedPlotId} />
             </div>
-          </Card>
-
-          <Card title={`รายการแปลง (${scopedPlots.length})`} noPadding>
+          ) : (
             <PlotsTable
               plots={scopedPlots} trees={scopedTrees} selectedPlotId={selectedPlotId}
               onSelectPlot={id => setSelectedPlotId(prev => prev === id ? null : id)}
               onSave={savePlot} onDelete={deletePlot} onUpdateStatus={updatePlotStatus}
             />
-          </Card>
-        </div>
+          )}
+        </Card>
       )}
     </div>
   );
