@@ -1,9 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../AuthContext';
 import { api } from '../api';
 import CommunityEnterpriseCard from '../components/CommunityEnterpriseCard';
 import Card from '../components/Card';
 import PageHeader from '../components/PageHeader';
+
+function CommunityEnterpriseDetailModal({ onClose, ...cardProps }) {
+  return (
+    <div className="fixed inset-0 z-30 overflow-y-auto bg-black/40 p-4" onClick={onClose}>
+      <div className="mx-auto my-8 w-full max-w-3xl" onClick={e => e.stopPropagation()}>
+        <div className="mb-2 flex justify-end">
+          <button onClick={onClose} className="rounded bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow hover:bg-gray-100">✕ ปิด</button>
+        </div>
+        <CommunityEnterpriseCard {...cardProps} />
+      </div>
+    </div>
+  );
+}
 
 export default function CommunityEnterprises() {
   const { user } = useAuth();
@@ -16,6 +29,7 @@ export default function CommunityEnterprises() {
   const [error, setError] = useState('');
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [managingId, setManagingId] = useState(null);
 
   async function reload() {
     setLoading(true);
@@ -59,6 +73,7 @@ export default function CommunityEnterprises() {
   async function deleteEntity(id) {
     await api.deleteCommunityEnterprise(id);
     setEntities(prev => prev.filter(e => e.id !== id));
+    setManagingId(prev => prev === id ? null : prev);
   }
 
   async function addMember(entityId, userId) {
@@ -91,6 +106,9 @@ export default function CommunityEnterprises() {
     setPlots(prev => prev.map(p => p.id === saved.id ? saved : p));
   }
 
+  const purposesById = useMemo(() => new Map(purposes.map(p => [p.id, p.name])), [purposes]);
+  const managingEntity = entities.find(e => e.id === managingId) || null;
+
   return (
     <div>
       <PageHeader title="วิสาหกิจชุมชน" subtitle="จัดการกลุ่ม, สมาชิก, และแปลงที่ดินที่สังกัด" />
@@ -121,28 +139,76 @@ export default function CommunityEnterprises() {
         {loading ? (
           <div className="py-16 text-center text-slate-400">กำลังโหลดข้อมูล...</div>
         ) : (
-          <div className="space-y-4">
-            {entities.map(entity => (
-              <CommunityEnterpriseCard
-                key={entity.id}
-                entity={entity}
-                users={users}
-                plots={plots}
-                purposes={purposes}
-                canDelete={isAdmin}
-                onSave={saveEntity}
-                onDelete={deleteEntity}
-                onAddMember={addMember}
-                onRemoveMember={removeMember}
-                onLinkPlot={linkPlot}
-                onUnlinkPlot={unlinkPlot}
-                onApprovePlot={approvePendingPlot}
-              />
-            ))}
-            {entities.length === 0 && <div className="py-8 text-center text-slate-400">ยังไม่มีวิสาหกิจชุมชน</div>}
-          </div>
+          <Card title={`รายชื่อวิสาหกิจชุมชน (${entities.length})`} noPadding>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px] text-left text-sm">
+                <thead className="border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase text-slate-500">
+                  <tr>
+                    <th className="px-3 py-2">ชื่อกลุ่ม</th>
+                    <th className="px-3 py-2">วัตถุประสงค์หลัก</th>
+                    <th className="px-3 py-2">ที่ตั้ง</th>
+                    <th className="px-3 py-2">สมาชิก</th>
+                    <th className="px-3 py-2">แปลงที่อนุมัติ</th>
+                    <th className="px-3 py-2">รออนุมัติ</th>
+                    <th className="px-3 py-2">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {entities.map(entity => {
+                    const approvedCount = plots.filter(p => p.communityEnterpriseId === entity.id && p.communityEnterpriseStatus === 'approved').length;
+                    const pendingCount = plots.filter(p => p.communityEnterpriseId === entity.id && p.communityEnterpriseStatus === 'pending').length;
+                    return (
+                      <tr key={entity.id} className="hover:bg-stone-50">
+                        <td className="px-3 py-2 font-semibold text-slate-700">{entity.name}</td>
+                        <td className="px-3 py-2">
+                          {entity.purposeId && purposesById.has(entity.purposeId) ? purposesById.get(entity.purposeId) : 'ยังไม่กำหนดวัตถุประสงค์'}
+                        </td>
+                        <td className="px-3 py-2">{[entity.district, entity.province].filter(Boolean).join(' ') || '-'}</td>
+                        <td className="px-3 py-2">{entity.members.length}</td>
+                        <td className="px-3 py-2">{approvedCount}</td>
+                        <td className="px-3 py-2">
+                          {pendingCount > 0 ? (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">{pendingCount}</span>
+                          ) : '-'}
+                        </td>
+                        <td className="px-3 py-2">
+                          <button
+                            onClick={() => setManagingId(entity.id)}
+                            className="rounded border border-gray-300 px-2 py-1 text-xs hover:border-emerald-600 hover:text-emerald-700"
+                          >
+                            จัดการ
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {entities.length === 0 && (
+                    <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-400">ยังไม่มีวิสาหกิจชุมชน</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         )}
       </div>
+
+      {managingEntity && (
+        <CommunityEnterpriseDetailModal
+          onClose={() => setManagingId(null)}
+          entity={managingEntity}
+          users={users}
+          plots={plots}
+          purposes={purposes}
+          canDelete={isAdmin}
+          onSave={saveEntity}
+          onDelete={deleteEntity}
+          onAddMember={addMember}
+          onRemoveMember={removeMember}
+          onLinkPlot={linkPlot}
+          onUnlinkPlot={unlinkPlot}
+          onApprovePlot={approvePendingPlot}
+        />
+      )}
     </div>
   );
 }
