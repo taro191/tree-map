@@ -13,6 +13,9 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^0\d{9}$/;
 const NATIONAL_ID_RE = /^\d{13}$/;
 const VALID_ROLES = ['user', 'admin', 'enterprise_admin'];
+const PLOT_STATUSES = ['data_entry', 'tree_survey', 'submitted', 'approved'];
+const LOCKED_PLOT_STATUSES = ['submitted', 'approved'];
+const PLOT_LOCKED_MESSAGE = 'แปลงนี้อยู่ระหว่างตรวจสอบหรือตรวจสอบผ่านแล้ว ไม่สามารถแก้ไขข้อมูลได้';
 
 function normalizePhone(phone) {
   return (phone || '').replace(/[\s-]/g, '');
@@ -131,8 +134,24 @@ function createApp(store) {
     try {
       const name = (req.body && req.body.name || '').trim();
       if (!name) return res.status(400).json({ error: 'name is required' });
+      const existing = await store.findPlotById(req.params.id);
+      if (existing && LOCKED_PLOT_STATUSES.includes(existing.status)) {
+        return res.status(409).json({ error: PLOT_LOCKED_MESSAGE });
+      }
       const plot = { ...req.body, id: req.params.id, name };
       res.json(await store.upsertPlot(plot));
+    } catch (err) { next(err); }
+  });
+
+  app.post('/api/plots/:id/submit', async (req, res, next) => {
+    try {
+      const plot = await store.findPlotById(req.params.id);
+      if (!plot) return res.status(404).json({ error: 'plot not found' });
+      if (plot.status !== 'tree_survey') {
+        return res.status(409).json({ error: 'ส่งแปลงตรวจสอบได้เฉพาะแปลงที่อยู่ในสถานะสำรวจต้นไม้เท่านั้น' });
+      }
+      const updated = await store.updatePlotStatus(req.params.id, 'submitted', plot.reviewNote, plot.reviewPhotos);
+      res.json(updated);
     } catch (err) { next(err); }
   });
 
@@ -156,8 +175,18 @@ function createApp(store) {
       if (typeof lat !== 'number' || typeof lng !== 'number') {
         return res.status(400).json({ error: 'lat and lng must be numbers' });
       }
+      const plot = await store.findPlotById(plotId);
+      if (!plot) return res.status(404).json({ error: 'plot not found' });
+      if (LOCKED_PLOT_STATUSES.includes(plot.status)) {
+        return res.status(409).json({ error: PLOT_LOCKED_MESSAGE });
+      }
+      const isNew = !(await store.findTreeById(req.params.id));
       const tree = { ...req.body, id: req.params.id };
-      res.json(await store.upsertTree(tree));
+      const saved = await store.upsertTree(tree);
+      if (isNew && plot.status === 'data_entry') {
+        await store.bumpPlotToTreeSurvey(plotId);
+      }
+      res.json(saved);
     } catch (err) { next(err); }
   });
 
@@ -286,6 +315,25 @@ function createApp(store) {
     if (req.user.role !== 'enterprise_admin') return plots;
     return plots.filter(p => p.communityEnterpriseId === req.user.managedCommunityEnterpriseId);
   }
+
+  function canManagePlot(req, plot) {
+    return req.user.role === 'admin' || plot.communityEnterpriseId === req.user.managedCommunityEnterpriseId;
+  }
+
+  app.patch('/api/admin/plots/:id/status', requireAdminOrEnterpriseAdmin, async (req, res, next) => {
+    try {
+      const plot = await store.findPlotById(req.params.id);
+      if (!plot) return res.status(404).json({ error: 'plot not found' });
+      if (!canManagePlot(req, plot)) return res.status(403).json({ error: 'forbidden' });
+      const status = req.body && req.body.status;
+      if (!PLOT_STATUSES.includes(status)) return res.status(400).json({ error: 'invalid status' });
+      const note = (req.body && req.body.note || '').trim();
+      if (!note) return res.status(400).json({ error: 'note is required' });
+      const photos = Array.isArray(req.body && req.body.photos) ? req.body.photos : [];
+      const updated = await store.updatePlotStatus(req.params.id, status, note, photos);
+      res.json(updated);
+    } catch (err) { next(err); }
+  });
 
   app.get('/api/admin/export/plots.csv', requireAdminOrEnterpriseAdmin, async (req, res, next) => {
     try {

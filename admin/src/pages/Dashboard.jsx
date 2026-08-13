@@ -60,6 +60,11 @@ export default function Dashboard() {
     if (selectedPlotId === id) setSelectedPlotId(null);
   }
 
+  async function updatePlotStatus(id, status, note, photos) {
+    const updated = await api.updatePlotStatus(id, status, note, photos);
+    setPlots(prev => prev.map(p => p.id === updated.id ? updated : p));
+  }
+
   async function saveTree(tree) {
     const saved = await api.saveTree(tree);
     setTrees(prev => prev.map(t => t.id === saved.id ? saved : t));
@@ -112,7 +117,7 @@ export default function Dashboard() {
             <PlotsTable
               plots={scopedPlots} trees={scopedTrees} selectedPlotId={selectedPlotId}
               onSelectPlot={id => setSelectedPlotId(prev => prev === id ? null : id)}
-              onSave={savePlot} onDelete={deletePlot}
+              onSave={savePlot} onDelete={deletePlot} onUpdateStatus={updatePlotStatus}
             />
           </Card>
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.22</title>
+<title>ระบบแผนที่ต้นไม้ v1.23</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -171,6 +171,14 @@
 
   .empty-hint{font-size:12.5px;color:var(--muted);text-align:center;padding:24px 10px;line-height:1.6;}
 
+  .status-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:white;vertical-align:middle;}
+  .review-reject-box{background:#FBEAEA;border:1px solid #E3B3B3;border-radius:10px;padding:12px;margin:0 0 14px;font-size:12.5px;color:#7a2b2b;line-height:1.6;}
+  .review-reject-box b{display:block;margin-bottom:4px;}
+  .review-photos{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .review-photos img{width:64px;height:64px;object-fit:cover;border-radius:8px;}
+  .status-hint{font-size:12.5px;color:var(--muted);background:var(--tag);border-radius:10px;padding:10px 12px;margin-top:10px;}
+  .plot-submit-row{margin-top:10px;}
+
   .plot-photo-section{margin:0 0 14px;}
   .plot-photo-preview{width:100%;max-height:420px;object-fit:contain;border-radius:10px;display:block;background:var(--tag);}
   .plot-photo-placeholder{background:var(--tag);border-radius:10px;padding:20px 10px;text-align:center;font-size:12.5px;color:var(--muted);}
@@ -284,13 +292,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.22</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.23</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.22</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.23</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -514,6 +522,27 @@
 const COLORS = ['#3D6B4A','#A6612E','#4A6FA5','#8A4F9E','#B5533C','#5A8A6B','#C08A2E','#3F7C7C'];
 const SATELLITE_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 const SATELLITE_ATTRIBUTION = 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community';
+const PLOT_STATUS_LABELS = {
+  data_entry: 'ป้อนข้อมูลแปลง',
+  tree_survey: 'สำรวจต้นไม้',
+  submitted: 'ส่งแปลงตรวจสอบ',
+  approved: 'ตรวจสอบผ่าน'
+};
+const PLOT_STATUS_COLORS = {
+  data_entry: '#8A8A8A',
+  tree_survey: '#4A6FA5',
+  submitted: '#C08A2E',
+  approved: '#3D6B4A'
+};
+function plotStatusBadge(plot){
+  const status = (plot && plot.status) || 'data_entry';
+  const label = PLOT_STATUS_LABELS[status] || status;
+  const color = PLOT_STATUS_COLORS[status] || '#8A8A8A';
+  return `<span class="status-badge" style="background:${color}">${escapeHtml(label)}</span>`;
+}
+function isPlotLocked(plot){
+  return !!plot && (plot.status === 'submitted' || plot.status === 'approved');
+}
 let plots = [];
 let trees = [];
 let selectedPlotId = null;
@@ -1088,7 +1117,7 @@ function renderPlotList(){
     card.className = 'plot-card' + (p.id===selectedPlotId?' selected':'');
     card.innerHTML = `
       <button class="del-btn" data-del="${p.id}">✕</button>
-      <div class="plot-name"><span class="swatch" style="background:${p.color}"></span>${escapeHtml(p.name)}</div>
+      <div class="plot-name"><span class="swatch" style="background:${p.color}"></span>${escapeHtml(p.name)} ${plotStatusBadge(p)}</div>
       <div class="plot-owner">เจ้าของ: ${escapeHtml(p.ownerName||'-')}${p.ownerContact? ' · '+escapeHtml(p.ownerContact):''}</div>
       <div class="plot-count">🌳 ${count} ต้น${hasBoundary? '' : ' · ⚠️ ไม่มีขอบเขต'}</div>
     `;
@@ -1126,21 +1155,58 @@ function renderPlotDetailInfo(){
   const count = trees.filter(t=>t.plotId===plot.id).length;
   const areaLine = areaText(plot);
   const addrLine = addressText(plot);
+  const locked = isPlotLocked(plot);
+  const status = plot.status || 'data_entry';
+  const rejectionNote = (status === 'tree_survey' && plot.reviewNote) ? plot.reviewNote : '';
+  const rejectionPhotos = rejectionNote ? (plot.reviewPhotos || []) : [];
   el.innerHTML = `
     <div class="active-plot-banner">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
         <div>
-          <b>${escapeHtml(plot.name)}</b> · เจ้าของ: ${escapeHtml(plot.ownerName||'-')}${plot.ownerContact? ' · '+escapeHtml(plot.ownerContact):''}
+          <b>${escapeHtml(plot.name)}</b> ${plotStatusBadge(plot)} · เจ้าของ: ${escapeHtml(plot.ownerName||'-')}${plot.ownerContact? ' · '+escapeHtml(plot.ownerContact):''}
           ${plot.docTitle ? `<br>เอกสารสิทธิ์: ${escapeHtml(plot.docTitle)}` : ''}
           ${areaLine ? `<br>เนื้อที่: ${escapeHtml(areaLine)}` : ''}
           ${addrLine ? `<br>ที่ตั้ง: ${escapeHtml(addrLine)}` : ''}
           <br>🌳 ${count} ต้น
         </div>
-        <button class="edit-btn" id="btn-edit-plot-detail" style="flex-shrink:0;">✏️</button>
+        ${locked ? '' : '<button class="edit-btn" id="btn-edit-plot-detail" style="flex-shrink:0;">✏️</button>'}
       </div>
     </div>
+    ${rejectionNote ? `
+      <div class="review-reject-box">
+        <b>⚠️ ตรวจสอบไม่ผ่าน ต้องแก้ไข</b>
+        ${escapeHtml(rejectionNote)}
+        ${rejectionPhotos.length ? `<div class="review-photos">${rejectionPhotos.map(src=>`<img src="${escapeAttr(src)}">`).join('')}</div>` : ''}
+      </div>
+    ` : ''}
+    <div class="plot-submit-row">
+      ${status === 'tree_survey' ? `
+        <button class="btn" id="btn-submit-plot" ${count===0?'disabled':''}>📤 ส่งแปลงตรวจสอบ</button>
+        ${count===0 ? '<div class="empty-hint" style="padding-top:6px;">ต้องมีต้นไม้อย่างน้อย 1 ต้นก่อนส่งตรวจสอบ</div>' : ''}
+      ` : ''}
+      ${status === 'submitted' ? '<div class="status-hint">⏳ ส่งแปลงตรวจสอบแล้ว รอผลการตรวจสอบ</div>' : ''}
+      ${status === 'approved' ? '<div class="status-hint">✅ ตรวจสอบผ่านแล้ว ไม่สามารถแก้ไขข้อมูลได้อีก</div>' : ''}
+    </div>
   `;
-  document.getElementById('btn-edit-plot-detail').onclick = ()=> startEditPlotDetail();
+  const editBtn = document.getElementById('btn-edit-plot-detail');
+  if(editBtn) editBtn.onclick = ()=> startEditPlotDetail();
+  const submitBtn = document.getElementById('btn-submit-plot');
+  if(submitBtn) submitBtn.onclick = ()=> submitPlotForReview(plot.id);
+}
+
+async function submitPlotForReview(id){
+  if(!confirm('ยืนยันส่งแปลงนี้เข้าสู่กระบวนการตรวจสอบ? หลังส่งแล้วจะไม่สามารถแก้ไขข้อมูลแปลง/ต้นไม้ได้จนกว่าจะตรวจสอบเสร็จ')) return;
+  try{
+    const res = await fetch('/api/plots/'+encodeURIComponent(id)+'/submit', {method:'POST'});
+    if(!res.ok){
+      const data = await res.json().catch(()=>({}));
+      throw new Error(data.error || 'ส่งแปลงไม่สำเร็จ');
+    }
+    const updated = await res.json();
+    const idx = plots.findIndex(p=>p.id===id);
+    if(idx>=0) plots[idx] = updated;
+    renderAll();
+  }catch(err){ alert(err.message); }
 }
 
 async function startEditPlotDetail(){
@@ -1235,25 +1301,31 @@ function renderPlotDetail(){
   const el = document.getElementById('plot-detail');
   const plot = plots.find(p=>p.id===selectedPlotId);
   if(!plot){ el.innerHTML = ''; return; }
+  const locked = isPlotLocked(plot);
   el.innerHTML = `
     <div class="active-plot-banner">รูปภาพของแปลง: <b>${escapeHtml(plot.name)}</b></div>
     <div class="plot-photo-section">
       <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;">รูปแปลง</label>
       ${plot.photo ? `<img class="plot-photo-preview" src="${plot.photo}">` : `<div class="plot-photo-placeholder">ยังไม่มีรูปแปลง</div>`}
+      ${locked ? '' : `
       <input type="file" accept="image/*" capture="environment" id="in-plot-camera" style="display:none;">
       <button class="btn secondary small" id="btn-take-plot-photo" style="width:100%;margin-top:8px;">${plot.photo ? '📷 ถ่ายรูปใหม่ (แทนที่รูปเดิม)' : '📷 ถ่ายรูปแปลง'}</button>
+      `}
     </div>
     <div class="plot-photo-section">
       <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;">รูปเอกสารที่ดิน (ประทับลายน้ำอัตโนมัติ)</label>
       ${plot.docPhoto ? `<img class="plot-photo-preview" src="${plot.docPhoto}">` : `<div class="plot-photo-placeholder">ยังไม่มีรูปเอกสารที่ดิน</div>`}
+      ${locked ? '' : `
       <input type="file" accept="image/*" capture="environment" id="in-plot-doc-camera" style="display:none;">
       <input type="file" accept="image/*" id="in-plot-doc-upload" style="display:none;">
       <div style="display:flex;gap:8px;margin-top:8px;">
         <button class="btn secondary small" id="btn-take-doc-photo" style="flex:1;">📷 ถ่ายรูปเอกสาร</button>
         <button class="btn secondary small" id="btn-upload-doc-photo" style="flex:1;">🖼️ อัปโหลดรูปเอกสาร</button>
       </div>
+      `}
     </div>
   `;
+  if(locked) return;
   document.getElementById('btn-take-plot-photo').onclick = ()=> document.getElementById('in-plot-camera').click();
   document.getElementById('in-plot-camera').onchange = (e)=>{
     const file = e.target.files[0];
@@ -1292,15 +1364,19 @@ function renderTreeTab(){
     return;
   }
 
+  const locked = isPlotLocked(plot);
   const needsRefPoint = !plot.refPoint;
   let html = `
-    <div class="active-plot-banner">กำลังเพิ่มต้นไม้ในแปลง: <b>${escapeHtml(plot.name)}</b></div>
-    ${needsRefPoint ? '<div class="empty-hint" style="padding:12px;background:var(--tag);border-radius:10px;margin-bottom:14px;">⚠️ ต้องบันทึกจุดอ้างอิงก่อน จึงจะเริ่มปักหมุดต้นไม้ได้</div>' : ''}
+    <div class="active-plot-banner">กำลังเพิ่มต้นไม้ในแปลง: <b>${escapeHtml(plot.name)}</b> ${plotStatusBadge(plot)}</div>
+    ${locked ? `<div class="empty-hint" style="padding:12px;background:var(--tag);border-radius:10px;margin-bottom:14px;">🔒 แปลงนี้${plot.status==='approved'?'ตรวจสอบผ่านแล้ว':'อยู่ระหว่างตรวจสอบ'} ไม่สามารถแก้ไขจุดอ้างอิง/ต้นไม้ หรือเพิ่มต้นไม้ใหม่ได้</div>` : ''}
+    ${(!locked && needsRefPoint) ? '<div class="empty-hint" style="padding:12px;background:var(--tag);border-radius:10px;margin-bottom:14px;">⚠️ ต้องบันทึกจุดอ้างอิงก่อน จึงจะเริ่มปักหมุดต้นไม้ได้</div>' : ''}
+    ${locked ? '' : `
     <div class="mode-toggle">
       <span>${needsRefPoint ? 'โหมดบันทึกจุดอ้างอิง (คลิกบนแผนที่)' : 'โหมดเพิ่มต้นไม้ (คลิกบนแผนที่)'}</span>
       <div class="switch ${addMode?'on':''}" id="mode-switch"><div class="knob"></div></div>
     </div>
     <button class="btn secondary small" id="btn-gps-tree" style="width:100%;margin-bottom:14px;">📍 ใช้ตำแหน่ง GPS ปัจจุบันเป็น${needsRefPoint ? 'จุดอ้างอิง' : 'ตำแหน่งต้นไม้'}</button>
+    `}
   `;
   if(plot.refPoint){
     const refPhoto = plot.refPoint.photos && plot.refPoint.photos[0];
@@ -1313,7 +1389,7 @@ function renderTreeTab(){
           <div class="tspecies">${escapeHtml(plot.refPoint.description || '')}</div>
           <div class="tcoords">lat: ${plot.refPoint.lat.toFixed(6)}, lng: ${plot.refPoint.lng.toFixed(6)}</div>
         </div>
-        <button class="edit-btn" id="btn-edit-refpoint">✏️</button>
+        ${locked ? '' : '<button class="edit-btn" id="btn-edit-refpoint">✏️</button>'}
       </div>
     `;
   }
@@ -1331,20 +1407,21 @@ function renderTreeTab(){
             <div class="tspecies">${sub}</div>
             <div class="tcoords">lat: ${t.lat.toFixed(6)}, lng: ${t.lng.toFixed(6)}</div>
           </div>
-          <button class="edit-btn" data-edittree="${t.id}">✏️</button>
-          <button class="del-btn" data-deltree="${t.id}">✕</button>
+          ${locked ? '' : `<button class="edit-btn" data-edittree="${t.id}">✏️</button><button class="del-btn" data-deltree="${t.id}">✕</button>`}
         </div>
       `;
     });
   }
   el.innerHTML = html;
-  document.getElementById('mode-switch').onclick = ()=>{
-    addMode = !addMode;
-    updateBanner();
-    if(addMode) setSheetExpanded(false);
-    renderTreeTab();
-  };
-  document.getElementById('btn-gps-tree').onclick = ()=> placeTreeAtGPS();
+  if(!locked){
+    document.getElementById('mode-switch').onclick = ()=>{
+      addMode = !addMode;
+      updateBanner();
+      if(addMode) setSheetExpanded(false);
+      renderTreeTab();
+    };
+    document.getElementById('btn-gps-tree').onclick = ()=> placeTreeAtGPS();
+  }
   const editRefBtn = document.getElementById('btn-edit-refpoint');
   if(editRefBtn) editRefBtn.onclick = ()=> openEditRefPointModal();
   el.querySelectorAll('[data-edittree]').forEach(btn=>{
@@ -1952,7 +2029,8 @@ document.getElementById('btn-save-boundary').onclick = async ()=>{
     province: creatingPlot.province, postcode: creatingPlot.postcode,
     photo: null, docPhoto: null, color: creatingPlot.color,
     boundary: creatingPlot.points.slice(),
-    createdBy: identifiedUser ? identifiedUser.id : null
+    createdBy: identifiedUser ? identifiedUser.id : null,
+    status: 'data_entry', reviewNote: null, reviewPhotos: []
   };
   try{ await apiSavePlot(plot); }catch(err){ alert(err.message); return; }
   plots.push(plot);
@@ -2071,9 +2149,14 @@ document.getElementById('btn-save-tree').onclick = async ()=>{
       lat, lng
     };
   }
+  const wasNewTree = !editingTreeId;
   try{ await apiSaveTree(tree); }catch(err){ alert(err.message); return; }
   const idx = trees.findIndex(t=>t.id===tree.id);
   if(idx>=0) trees[idx] = tree; else trees.push(tree);
+  if(wasNewTree){
+    const plot = plots.find(p=>p.id===selectedPlotId);
+    if(plot && plot.status === 'data_entry') plot.status = 'tree_survey';
+  }
   document.getElementById('modal-overlay').classList.remove('show');
   pendingLatLng = null;
   editingTreeId = null;

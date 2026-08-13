@@ -14,6 +14,7 @@ function plotsToCSV(plots) {
   return toCSV(plots, [
     { label: 'id', get: p => p.id },
     { label: 'name', get: p => p.name },
+    { label: 'status', get: p => p.status },
     { label: 'ownerName', get: p => p.ownerName },
     { label: 'ownerContact', get: p => p.ownerContact },
     { label: 'docTitle', get: p => p.docTitle },

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import PlotStatusModal from './PlotStatusModal';
 
 const FIELDS = [
   ['name', 'ชื่อแปลง'],
@@ -13,10 +14,33 @@ const FIELDS = [
   ['postcode', 'รหัสไปรษณีย์']
 ];
 
-export default function PlotsTable({ plots, trees, selectedPlotId, onSelectPlot, onSave, onDelete }) {
+const STATUS_LABELS = {
+  data_entry: 'ป้อนข้อมูลแปลง',
+  tree_survey: 'สำรวจต้นไม้',
+  submitted: 'ส่งแปลงตรวจสอบ',
+  approved: 'ตรวจสอบผ่าน'
+};
+
+const STATUS_COLORS = {
+  data_entry: 'bg-gray-500',
+  tree_survey: 'bg-blue-600',
+  submitted: 'bg-amber-500',
+  approved: 'bg-emerald-600'
+};
+
+function StatusBadge({ status }) {
+  return (
+    <span className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold text-white ${STATUS_COLORS[status] || 'bg-gray-500'}`}>
+      {STATUS_LABELS[status] || status}
+    </span>
+  );
+}
+
+export default function PlotsTable({ plots, trees, selectedPlotId, onSelectPlot, onSave, onDelete, onUpdateStatus }) {
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState({});
   const [busyId, setBusyId] = useState(null);
+  const [reviewingPlot, setReviewingPlot] = useState(null);
 
   function startEdit(plot) {
     setEditingId(plot.id);
@@ -45,9 +69,10 @@ export default function PlotsTable({ plots, trees, selectedPlotId, onSelectPlot,
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[900px] text-sm">
+      <table className="w-full min-w-[1000px] text-sm">
         <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase text-slate-500">
           <tr>
+            <th className="px-3 py-2">สถานะ</th>
             {FIELDS.map(([key, label]) => <th key={key} className="px-3 py-2">{label}</th>)}
             <th className="px-3 py-2">ต้นไม้</th>
             <th className="px-3 py-2">จัดการ</th>
@@ -56,6 +81,7 @@ export default function PlotsTable({ plots, trees, selectedPlotId, onSelectPlot,
         <tbody className="divide-y divide-gray-100">
           {plots.map(p => {
             const isEditing = editingId === p.id;
+            const locked = p.status === 'submitted' || p.status === 'approved';
             const treeCount = trees.filter(t => t.plotId === p.id).length;
             return (
               <tr
@@ -63,6 +89,7 @@ export default function PlotsTable({ plots, trees, selectedPlotId, onSelectPlot,
                 onClick={() => !isEditing && onSelectPlot(p.id)}
                 className={`cursor-pointer ${p.id === selectedPlotId ? 'bg-emerald-50' : 'hover:bg-stone-50'}`}
               >
+                <td className="px-3 py-2"><StatusBadge status={p.status || 'data_entry'} /></td>
                 {FIELDS.map(([key]) => (
                   <td key={key} className="px-3 py-2">
                     {isEditing ? (
@@ -83,8 +110,13 @@ export default function PlotsTable({ plots, trees, selectedPlotId, onSelectPlot,
                       <button onClick={() => setEditingId(null)} className="rounded border border-stone-300 px-2 py-1 text-xs">ยกเลิก</button>
                     </div>
                   ) : (
-                    <div className="flex gap-2">
-                      <button onClick={() => startEdit(p)} className="rounded border border-stone-300 px-2 py-1 text-xs hover:border-emerald-700">แก้ไข</button>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        disabled={locked} title={locked ? 'ต้องเปลี่ยนสถานะกลับก่อนจึงจะแก้ไขได้' : ''}
+                        onClick={() => startEdit(p)}
+                        className="rounded border border-stone-300 px-2 py-1 text-xs hover:border-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                      >แก้ไข</button>
+                      <button onClick={() => setReviewingPlot(p)} className="rounded border border-blue-200 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50">จัดการสถานะ</button>
                       <button disabled={busyId === p.id} onClick={() => remove(p.id)} className="rounded border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50">ลบ</button>
                     </div>
                   )}
@@ -93,10 +125,17 @@ export default function PlotsTable({ plots, trees, selectedPlotId, onSelectPlot,
             );
           })}
           {plots.length === 0 && (
-            <tr><td colSpan={FIELDS.length + 2} className="px-3 py-6 text-center text-slate-400">ยังไม่มีแปลง</td></tr>
+            <tr><td colSpan={FIELDS.length + 3} className="px-3 py-6 text-center text-slate-400">ยังไม่มีแปลง</td></tr>
           )}
         </tbody>
       </table>
+      {reviewingPlot && (
+        <PlotStatusModal
+          plot={reviewingPlot}
+          onClose={() => setReviewingPlot(null)}
+          onSave={(status, note, photos) => onUpdateStatus(reviewingPlot.id, status, note, photos)}
+        />
+      )}
     </div>
   );
 }

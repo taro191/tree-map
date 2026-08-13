@@ -25,6 +25,7 @@ export const api = {
   listPlots: () => request('/api/plots'),
   savePlot: (plot) => request(`/api/plots/${encodeURIComponent(plot.id)}`, { method: 'PUT', body: JSON.stringify(plot) }),
   deletePlot: (id) => request(`/api/plots/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  updatePlotStatus: (id, status, note, photos) => request(`/api/admin/plots/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: JSON.stringify({ status, note, photos }) }),
 
   listTrees: () => request('/api/trees'),
   saveTree: (tree) => request(`/api/trees/${encodeURIComponent(tree.id)}`, { method: 'PUT', body: JSON.stringify(tree) }),

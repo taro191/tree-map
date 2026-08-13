@@ -13,7 +13,10 @@ function createMemoryStore() {
     async upsertPlot(plot) {
       const existing = plots.get(plot.id);
       const createdBy = existing ? existing.createdBy : (plot.createdBy || null);
-      const saved = { ...plot, boundary: plot.boundary || [], refPoint: plot.refPoint || null, createdBy };
+      const status = existing ? existing.status : (plot.status || 'data_entry');
+      const reviewNote = existing ? existing.reviewNote : (plot.reviewNote || null);
+      const reviewPhotos = existing ? existing.reviewPhotos : (plot.reviewPhotos || []);
+      const saved = { ...plot, boundary: plot.boundary || [], refPoint: plot.refPoint || null, createdBy, status, reviewNote, reviewPhotos };
       plots.set(plot.id, saved);
       return saved;
     },
@@ -22,6 +25,21 @@ function createMemoryStore() {
       for (const [treeId, tree] of trees) {
         if (tree.plotId === id) trees.delete(treeId);
       }
+    },
+    async findPlotById(id) {
+      return plots.get(id) || null;
+    },
+    async updatePlotStatus(id, status, note, photos) {
+      const plot = plots.get(id);
+      if (!plot) return null;
+      plot.status = status;
+      plot.reviewNote = note || null;
+      plot.reviewPhotos = photos || [];
+      return plot;
+    },
+    async bumpPlotToTreeSurvey(id) {
+      const plot = plots.get(id);
+      if (plot && plot.status === 'data_entry') plot.status = 'tree_survey';
     },
     async listTrees() {
       return [...trees.values()];
@@ -32,6 +50,9 @@ function createMemoryStore() {
     },
     async deleteTree(id) {
       trees.delete(id);
+    },
+    async findTreeById(id) {
+      return trees.get(id) || null;
     },
     async createUser(id, email, phone, passwordHash, extra) {
       extra = extra || {};
