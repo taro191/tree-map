@@ -1,7 +1,7 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 
-export default function ProtectedRoute({ children }) {
+export default function ProtectedRoute({ children, requireAdmin }) {
   const { user, logout } = useAuth();
   if (user === undefined) {
     return <div className="flex h-screen items-center justify-center bg-gray-100 text-slate-500">กำลังโหลด...</div>;
@@ -17,6 +17,9 @@ export default function ProtectedRoute({ children }) {
         <button onClick={logout} className="rounded bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900">ออกจากระบบ</button>
       </div>
     );
+  }
+  if (requireAdmin && user.role !== 'admin') {
+    return <Navigate to="/" replace />;
   }
   return children;
 }

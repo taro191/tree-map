@@ -4,6 +4,9 @@ import { useAuth } from '../AuthContext';
 
 const NAV_ITEMS = [
   { to: '/', label: 'แดชบอร์ด', icon: '📊' },
+  { to: '/plots', label: 'แปลงที่ดิน', icon: '📍' },
+  { to: '/trees', label: 'ต้นไม้', icon: '🌳' },
+  { to: '/users', label: 'ผู้ใช้งาน', icon: '👥', adminOnly: true },
   { to: '/community-enterprises', label: 'วิสาหกิจชุมชน', icon: '🏢' }
 ];
 
@@ -18,6 +21,7 @@ export default function AdminLayout({ children }) {
   const [collapsed, setCollapsed] = useState(false);
   const badge = ROLE_BADGE[user?.role];
   const identity = [user?.name, user?.email, user?.phone].filter(Boolean).join(' · ');
+  const navItems = NAV_ITEMS.filter(item => !item.adminOnly || user?.role === 'admin');
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -27,7 +31,7 @@ export default function AdminLayout({ children }) {
           {!collapsed && <span className="truncate text-sm font-bold text-white">แผนที่ต้นไม้</span>}
         </div>
         <nav className="flex-1 overflow-y-auto py-3">
-          {NAV_ITEMS.map(item => {
+          {navItems.map(item => {
             const active = location.pathname === item.to;
             return (
               <Link
