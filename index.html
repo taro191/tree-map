@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.45</title>
+<title>ระบบแผนที่ต้นไม้ v1.46</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -308,13 +308,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.45</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.46</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.45</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.46</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -340,14 +340,6 @@
           <div class="field">
             <label>ประเภท/เลขที่เอกสารสิทธิ์ (ถ้ามี)</label>
             <input id="in-plot-doc" placeholder="เช่น สปก 4-01ข">
-          </div>
-          <div class="field">
-            <label>เนื้อที่ (ไม่เกิน 30 ไร่ 0 งาน 0 ตารางวา)</label>
-            <div style="display:flex;gap:8px;">
-              <input id="in-plot-rai" type="number" min="0" max="30" placeholder="ไร่" style="width:auto;flex:0 1 80px;">
-              <input id="in-plot-ngan" type="number" min="0" max="3" placeholder="งาน" style="width:auto;flex:0 1 80px;">
-              <input id="in-plot-wa" type="number" min="0" max="99" placeholder="ตร.วา" style="width:auto;flex:0 1 80px;">
-            </div>
           </div>
           <div class="field">
             <label>ที่ตั้งแปลง</label>
@@ -817,6 +809,28 @@ function latLonToUTM(lat, lon){
   let northing = k0*(M + N*Math.tan(latRad)*(A**2/2 + (5-T+9*C+4*C**2)*A**4/24 + (61-58*T+T**2+600*C-330*eccPrimeSq)*A**6/720));
   if(lat < 0) northing += 10000000.0;
   return {zone: zoneNumber, letter: utmLetterDesignator(lat), easting, northing};
+}
+
+function polygonAreaSqMeters(boundary){
+  if(!boundary || boundary.length < 3) return 0;
+  const pts = boundary.map(p => latLonToUTM(p.lat, p.lng));
+  let area = 0;
+  for(let i=0; i<pts.length; i++){
+    const j = (i+1) % pts.length;
+    area += pts[i].easting * pts[j].northing;
+    area -= pts[j].easting * pts[i].northing;
+  }
+  return Math.abs(area) / 2;
+}
+
+// 1 ไร่ = 4 งาน = 400 ตารางวา = 1600 ตร.ม., 1 งาน = 100 ตารางวา = 400 ตร.ม., 1 ตารางวา = 4 ตร.ม.
+function computeAreaFromBoundary(boundary){
+  const sqm = polygonAreaSqMeters(boundary);
+  const rai = Math.floor(sqm / 1600);
+  const afterRai = sqm - rai*1600;
+  const ngan = Math.floor(afterRai / 400);
+  const wa = Math.round(((afterRai - ngan*400) / 4) * 10) / 10;
+  return { areaRai: String(rai), areaNgan: String(ngan), areaWa: String(wa) };
 }
 
 function startWalkTracking(){
@@ -1324,7 +1338,7 @@ function renderPlotDetailInfo(){
 function startEditBoundary(plot){
   creatingPlot = {
     name: plot.name, ownerName: plot.ownerName, ownerContact: plot.ownerContact,
-    docTitle: plot.docTitle, areaRai: plot.areaRai, areaNgan: plot.areaNgan, areaWa: plot.areaWa,
+    docTitle: plot.docTitle,
     subdistrict: plot.subdistrict, district: plot.district, province: plot.province, postcode: plot.postcode,
     color: plot.color, points: (plot.boundary || []).map(pt=>({lat:pt.lat, lng:pt.lng}))
   };
@@ -1416,12 +1430,8 @@ function renderPlotDetailEditForm(el, plot){
       <input id="edit-plot-doc" value="${escapeAttr(plot.docTitle||'')}" placeholder="เช่น สปก 4-01ข">
     </div>
     <div class="field">
-      <label>เนื้อที่ (ไม่เกิน 30 ไร่ 0 งาน 0 ตารางวา)</label>
-      <div style="display:flex;gap:8px;">
-        <input id="edit-plot-rai" type="number" min="0" max="30" value="${escapeAttr(plot.areaRai||'')}" placeholder="ไร่" style="width:auto;flex:0 1 80px;">
-        <input id="edit-plot-ngan" type="number" min="0" max="3" value="${escapeAttr(plot.areaNgan||'')}" placeholder="งาน" style="width:auto;flex:0 1 80px;">
-        <input id="edit-plot-wa" type="number" min="0" max="99" value="${escapeAttr(plot.areaWa||'')}" placeholder="ตร.วา" style="width:auto;flex:0 1 80px;">
-      </div>
+      <label>เนื้อที่ (คำนวณจากขอบเขตแปลงที่บันทึกไว้ แก้ไขไม่ได้)</label>
+      <input value="${escapeAttr(areaText(plot) || 'ยังไม่มีขอบเขตแปลง')}" readonly>
     </div>
     <div class="field">
       <label>ที่ตั้งแปลง</label>
@@ -1480,17 +1490,12 @@ function renderPlotDetailEditForm(el, plot){
   document.getElementById('btn-save-plot-detail').onclick = async ()=>{
     const name = document.getElementById('edit-plot-name').value.trim();
     if(!name){ alert('กรุณากรอกชื่อแปลง'); return; }
-    const areaRai = document.getElementById('edit-plot-rai').value.trim();
-    if(areaRai && Number(areaRai) > 30){ alert('เนื้อที่ไร่ ใส่ได้ไม่เกิน 30 ไร่'); return; }
     const updated = {
       ...plot,
       name,
       ownerName: (identifiedUser && identifiedUser.name) || plot.ownerName,
       ownerContact: (identifiedUser && identifiedUser.phone) || plot.ownerContact,
       docTitle: document.getElementById('edit-plot-doc').value.trim(),
-      areaRai,
-      areaNgan: document.getElementById('edit-plot-ngan').value.trim(),
-      areaWa: document.getElementById('edit-plot-wa').value.trim(),
       subdistrict: document.getElementById('edit-plot-subdistrict').value.trim(),
       district: document.getElementById('edit-plot-district').value.trim(),
       province: document.getElementById('edit-plot-province').value.trim(),
@@ -2251,19 +2256,15 @@ document.getElementById('btn-add-plot').onclick = ()=>{
   const ownerName = document.getElementById('in-owner-name').value.trim();
   const ownerContact = document.getElementById('in-owner-contact').value.trim();
   const docTitle = document.getElementById('in-plot-doc').value.trim();
-  const areaRai = document.getElementById('in-plot-rai').value.trim();
-  const areaNgan = document.getElementById('in-plot-ngan').value.trim();
-  const areaWa = document.getElementById('in-plot-wa').value.trim();
   const subdistrict = document.getElementById('in-plot-subdistrict').value.trim();
   const district = document.getElementById('in-plot-district').value.trim();
   const province = document.getElementById('in-plot-province').value.trim();
   const postcode = document.getElementById('in-plot-postcode').value.trim();
   if(!name){ alert('กรุณากรอกชื่อแปลง'); return; }
-  if(areaRai && Number(areaRai) > 30){ alert('เนื้อที่ไร่ ใส่ได้ไม่เกิน 30 ไร่'); return; }
   const purposeId = document.getElementById('in-plot-purpose').value || null;
   const communityEnterpriseId = document.getElementById('in-plot-ce').value || null;
   creatingPlot = {
-    name, ownerName, ownerContact, docTitle, areaRai, areaNgan, areaWa,
+    name, ownerName, ownerContact, docTitle,
     subdistrict, district, province, postcode, color: editingColor,
     purposeId, communityEnterpriseId, points: []
   };
@@ -2323,7 +2324,8 @@ document.getElementById('btn-save-boundary').onclick = async ()=>{
     const plotId = editingBoundaryPlotId;
     const existing = plots.find(p=>p.id===plotId);
     if(!existing){ endBoundaryCreation(); setView('home'); return; }
-    const updated = { ...existing, boundary: creatingPlot.points.slice() };
+    const boundary = creatingPlot.points.slice();
+    const updated = { ...existing, boundary, ...computeAreaFromBoundary(boundary) };
     try{ await apiSavePlot(updated); }catch(err){ alert(err.message); return; }
     const idx = plots.findIndex(p=>p.id===plotId);
     if(idx>=0) plots[idx] = updated;
@@ -2333,15 +2335,16 @@ document.getElementById('btn-save-boundary').onclick = async ()=>{
     setView('plot-detail');
     return;
   }
+  const boundary = creatingPlot.points.slice();
   const plot = {
     id: uid(), name: creatingPlot.name, ownerName: creatingPlot.ownerName,
     ownerContact: creatingPlot.ownerContact, docTitle: creatingPlot.docTitle,
-    areaRai: creatingPlot.areaRai, areaNgan: creatingPlot.areaNgan, areaWa: creatingPlot.areaWa,
+    ...computeAreaFromBoundary(boundary),
     subdistrict: creatingPlot.subdistrict, district: creatingPlot.district,
     province: creatingPlot.province, postcode: creatingPlot.postcode,
     photo: null, docPhoto: null, color: creatingPlot.color,
     purposeId: creatingPlot.purposeId || null, communityEnterpriseId: creatingPlot.communityEnterpriseId || null,
-    boundary: creatingPlot.points.slice(),
+    boundary,
     createdBy: identifiedUser ? identifiedUser.id : null,
     status: 'data_entry', reviewNote: null, reviewPhotos: []
   };
@@ -2352,9 +2355,6 @@ document.getElementById('btn-save-boundary').onclick = async ()=>{
   document.getElementById('in-plot-name').value='';
   prefillOwnerFromIdentity();
   document.getElementById('in-plot-doc').value='';
-  document.getElementById('in-plot-rai').value='';
-  document.getElementById('in-plot-ngan').value='';
-  document.getElementById('in-plot-wa').value='';
   document.getElementById('in-plot-subdistrict').value='';
   document.getElementById('in-plot-district').value='';
   document.getElementById('in-plot-province').value='';
