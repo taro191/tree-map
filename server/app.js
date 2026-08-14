@@ -139,7 +139,7 @@ function createApp(store) {
   app.get('/api/community-enterprises', async (req, res, next) => {
     try {
       const entities = await store.listCommunityEnterprises();
-      res.json(entities.map(e => ({ id: e.id, name: e.name, purposeId: e.purposeId })));
+      res.json(entities.map(e => ({ id: e.id, name: e.name, purposeId: e.purposeId, maxPlotAreaRai: e.maxPlotAreaRai })));
     } catch (err) { next(err); }
   });
 
@@ -170,6 +170,12 @@ function createApp(store) {
           if (!targetCe) return res.status(404).json({ error: 'community enterprise not found' });
           if (requestedPurposeId !== (targetCe.purposeId || null)) {
             return res.status(400).json({ error: 'วัตถุประสงค์ของแปลงต้องตรงกับวัตถุประสงค์ของวิสาหกิจชุมชนจึงจะขอเข้าร่วมกลุ่มได้' });
+          }
+          if (targetCe.maxPlotAreaRai != null) {
+            const requestedAreaRai = Number((req.body && req.body.areaRai) != null ? req.body.areaRai : (existing ? existing.areaRai : 0)) || 0;
+            if (requestedAreaRai > Number(targetCe.maxPlotAreaRai)) {
+              return res.status(400).json({ error: `ขนาดแปลง (${requestedAreaRai} ไร่) เกินขนาดแปลงสูงสุดที่วิสาหกิจชุมชนนี้กำหนดไว้ (${targetCe.maxPlotAreaRai} ไร่)` });
+            }
           }
           communityEnterpriseStatus = 'pending';
         }

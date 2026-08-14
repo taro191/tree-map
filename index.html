@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.47</title>
+<title>ระบบแผนที่ต้นไม้ v1.48</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -308,13 +308,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.47</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.48</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.47</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.48</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -1186,12 +1186,25 @@ async function loadPurposesAndEntities(){
 
 // เติมช่องเลือก "วัตถุประสงค์" และ "วิสาหกิจชุมชนที่ตรงกัน" ให้ฟอร์มแปลง (ทั้งตอนสร้างใหม่และแก้ไข)
 // ใช้ตัวเดียวกันทั้งสองฟอร์ม ต่างกันแค่ id ของ element และค่าเริ่มต้น
-async function populatePurposeAndCeSelects(purposeSelectId, ceSelectId, ceHintId, currentPurposeId, currentCeId){
+async function populatePurposeAndCeSelects(purposeSelectId, ceSelectId, ceHintId, currentPurposeId, currentCeId, getCurrentAreaRai){
   await loadPurposesAndEntities();
   const purposeSelect = document.getElementById(purposeSelectId);
   const ceSelect = document.getElementById(ceSelectId);
   const ceHint = document.getElementById(ceHintId);
   if(!purposeSelect || !ceSelect) return;
+
+  // ถ้าขนาดแปลงปัจจุบัน (ถ้ารู้ค่าแล้ว) เกินขนาดแปลงสูงสุดที่กลุ่มนี้กำหนดไว้ ให้เตือนแล้วยกเลิกการเลือก
+  ceSelect.onchange = ()=>{
+    if(!ceSelect.value) return;
+    const entity = cachedCommunityEnterprises.find(e=>e.id===ceSelect.value);
+    if(!entity || entity.maxPlotAreaRai == null) return;
+    const currentArea = typeof getCurrentAreaRai === 'function' ? getCurrentAreaRai() : null;
+    if(currentArea == null) return;
+    if(currentArea > Number(entity.maxPlotAreaRai)){
+      alert(`แปลงนี้มีเนื้อที่ประมาณ ${currentArea} ไร่ ซึ่งเกินขนาดแปลงสูงสุดที่วิสาหกิจชุมชน "${entity.name}" กำหนดไว้ (${entity.maxPlotAreaRai} ไร่) กรุณาเลือกกลุ่มอื่น`);
+      ceSelect.value = '';
+    }
+  };
 
   function fillCeOptions(){
     const purposeId = purposeSelect.value;
@@ -1467,7 +1480,8 @@ function renderPlotDetailEditForm(el, plot){
   `;
   document.getElementById('edit-plot-postcode').addEventListener('focus', ()=> loadThaiZipIndex().catch(()=>{}));
   document.getElementById('edit-plot-postcode').addEventListener('input', ()=> handlePostcodeInputFor(EDIT_PLOT_ADDR_IDS));
-  populatePurposeAndCeSelects('edit-plot-purpose', 'edit-plot-ce', 'edit-plot-ce-hint', plot.purposeId, plot.communityEnterpriseId);
+  populatePurposeAndCeSelects('edit-plot-purpose', 'edit-plot-ce', 'edit-plot-ce-hint', plot.purposeId, plot.communityEnterpriseId,
+    ()=> plot.areaRai != null && plot.areaRai !== '' ? Number(plot.areaRai) : null);
 
   let editColor = plot.color;
   function renderEditColorRow(){
@@ -2326,11 +2340,25 @@ document.getElementById('btn-save-boundary').onclick = async ()=>{
     alert(`ขอบเขตที่วาดไว้มีเนื้อที่ประมาณ ${computedArea.areaRai} ไร่ ${computedArea.areaNgan} งาน ${computedArea.areaWa} ตร.วา ซึ่งเกิน 30 ไร่ กรุณาแก้ไขขอบเขตให้เล็กลงก่อนบันทึก`);
     return;
   }
+  // ถ้าแปลงนี้ผูกวิสาหกิจชุมชนที่กำหนดขนาดแปลงสูงสุดไว้ และเนื้อที่ที่วาดได้เกินกำหนด ให้เตือนแล้วถอนการผูกกลุ่มออก (ไม่บล็อกการบันทึกขอบเขต)
+  await loadPurposesAndEntities();
+  const linkedCeId = editingBoundaryPlotId
+    ? ((plots.find(p=>p.id===editingBoundaryPlotId)||{}).communityEnterpriseId || null)
+    : (creatingPlot.communityEnterpriseId || null);
+  let clearCeLink = false;
+  if(linkedCeId){
+    const entity = (cachedCommunityEnterprises||[]).find(e=>e.id===linkedCeId);
+    if(entity && entity.maxPlotAreaRai != null && Number(computedArea.areaRai) > Number(entity.maxPlotAreaRai)){
+      alert(`เนื้อที่ที่วาดได้ (${computedArea.areaRai} ไร่) เกินขนาดแปลงสูงสุดที่วิสาหกิจชุมชน "${entity.name}" กำหนดไว้ (${entity.maxPlotAreaRai} ไร่) ระบบจะถอนการขอเข้าร่วมกลุ่มนี้ออกให้ กรุณาเลือกกลุ่มอื่นภายหลังถ้าต้องการ`);
+      clearCeLink = true;
+    }
+  }
   if(editingBoundaryPlotId){
     const plotId = editingBoundaryPlotId;
     const existing = plots.find(p=>p.id===plotId);
     if(!existing){ endBoundaryCreation(); setView('home'); return; }
-    const updated = { ...existing, boundary, ...computedArea };
+    const updated = { ...existing, boundary, ...computedArea,
+      ...(clearCeLink ? {communityEnterpriseId: null, communityEnterpriseStatus: null} : {}) };
     try{ await apiSavePlot(updated); }catch(err){ alert(err.message); return; }
     const idx = plots.findIndex(p=>p.id===plotId);
     if(idx>=0) plots[idx] = updated;
@@ -2347,7 +2375,7 @@ document.getElementById('btn-save-boundary').onclick = async ()=>{
     subdistrict: creatingPlot.subdistrict, district: creatingPlot.district,
     province: creatingPlot.province, postcode: creatingPlot.postcode,
     photo: null, docPhoto: null, color: creatingPlot.color,
-    purposeId: creatingPlot.purposeId || null, communityEnterpriseId: creatingPlot.communityEnterpriseId || null,
+    purposeId: creatingPlot.purposeId || null, communityEnterpriseId: clearCeLink ? null : (creatingPlot.communityEnterpriseId || null),
     boundary,
     createdBy: identifiedUser ? identifiedUser.id : null,
     status: 'data_entry', reviewNote: null, reviewPhotos: []

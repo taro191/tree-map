@@ -36,7 +36,9 @@ export default function CommunityEnterpriseCard({ entity, users, plots, purposes
   const pendingPlots = plots.filter(p => p.communityEnterpriseId === entity.id && p.communityEnterpriseStatus === 'pending');
   const linkedPlots = plots.filter(p => p.communityEnterpriseId === entity.id && p.communityEnterpriseStatus === 'approved');
   // เลือกแปลงมาผูกเองได้เฉพาะที่วัตถุประสงค์ตรงกับกลุ่ม (ทั้งคู่ไม่ระบุ ถือว่าตรงกันด้วย เพื่อไม่ตัดแปลง/กลุ่มเก่าที่ยังไม่มีวัตถุประสงค์ออก)
-  const unlinkedPlots = plots.filter(p => !p.communityEnterpriseId && (p.purposeId || null) === (entity.purposeId || null));
+  // และถ้ากลุ่มกำหนดขนาดแปลงสูงสุดไว้ ตัดแปลงที่เกินขนาดออกไปเลยไม่ให้เลือกได้ตั้งแต่ต้น
+  const unlinkedPlots = plots.filter(p => !p.communityEnterpriseId && (p.purposeId || null) === (entity.purposeId || null)
+    && (entity.maxPlotAreaRai == null || Number(p.areaRai || 0) <= Number(entity.maxPlotAreaRai)));
 
   function startEdit() {
     setDraft({ ...entity });
@@ -82,7 +84,11 @@ export default function CommunityEnterpriseCard({ entity, users, plots, purposes
     setBusy(true);
     setError('');
     try {
-      await onSave(draft);
+      const payload = {
+        ...draft,
+        maxPlotAreaRai: draft.maxPlotAreaRai == null || draft.maxPlotAreaRai === '' ? null : Number(draft.maxPlotAreaRai)
+      };
+      await onSave(payload);
       setEditing(false);
     } catch (err) {
       setError(err.message);
@@ -263,6 +269,26 @@ export default function CommunityEnterpriseCard({ entity, users, plots, purposes
             />
           </div>
           <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-500">เงื่อนไข</label>
+            <div className="rounded border border-stone-300 p-2">
+              <div className="mb-1 text-[11px] font-semibold text-slate-500">ขนาดแปลงสูงสุด (ไร่)</div>
+              <label className="mb-1 flex items-center gap-1.5 text-xs text-slate-600">
+                <input
+                  type="checkbox" checked={draft.maxPlotAreaRai == null}
+                  onChange={e => setDraft({ ...draft, maxPlotAreaRai: e.target.checked ? null : '' })}
+                />
+                ไม่กำหนด
+              </label>
+              {draft.maxPlotAreaRai != null && (
+                <input
+                  type="number" min="0" step="0.1" value={draft.maxPlotAreaRai}
+                  onChange={e => setDraft({ ...draft, maxPlotAreaRai: e.target.value })}
+                  placeholder="เช่น 30" className="w-full rounded border border-stone-300 px-2 py-1 text-xs"
+                />
+              )}
+            </div>
+          </div>
+          <div>
             <label className="mb-1 block text-xs font-semibold text-slate-500">เอกสารจดทะเบียน (รูป/ไฟล์)</label>
             <input type="file" accept="image/*" onChange={onDocumentFile} className="text-xs" />
             {draft.documentPhoto && <span className="ml-2 text-xs text-emerald-700">แนบไฟล์แล้ว</span>}
@@ -284,6 +310,9 @@ export default function CommunityEnterpriseCard({ entity, users, plots, purposes
             🎯 {entity.purposeId && purposesById.has(entity.purposeId) ? purposesById.get(entity.purposeId) : 'ยังไม่กำหนดวัตถุประสงค์'}
           </p>
           {entity.purpose && <p className="mt-1 text-xs text-slate-600">{entity.purpose}</p>}
+          <p className="mt-1 text-xs text-slate-500">
+            📏 ขนาดแปลงสูงสุด: {entity.maxPlotAreaRai != null ? `${entity.maxPlotAreaRai} ไร่` : 'ไม่กำหนด'}
+          </p>
 
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <div>

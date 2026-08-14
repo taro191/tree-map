@@ -226,6 +226,7 @@ function createPgStore(connectionString) {
       contactPhone: row.contact_phone,
       purpose: row.purpose,
       purposeId: row.purpose_id,
+      maxPlotAreaRai: row.max_plot_area_rai != null ? Number(row.max_plot_area_rai) : null,
       documentPhoto: row.document_photo,
       createdAt: row.created_at
     };
@@ -243,17 +244,19 @@ function createPgStore(connectionString) {
 
   async function upsertCommunityEnterprise(entity) {
     const { rows } = await pool.query(
-      `INSERT INTO community_enterprises (id, name, registration_no, district, province, postcode, registered_date, chairperson, contact_phone, purpose, purpose_id, document_photo)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+      `INSERT INTO community_enterprises (id, name, registration_no, district, province, postcode, registered_date, chairperson, contact_phone, purpose, purpose_id, max_plot_area_rai, document_photo)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
        ON CONFLICT (id) DO UPDATE SET
          name=EXCLUDED.name, registration_no=EXCLUDED.registration_no, district=EXCLUDED.district,
          province=EXCLUDED.province, postcode=EXCLUDED.postcode, registered_date=EXCLUDED.registered_date,
          chairperson=EXCLUDED.chairperson, contact_phone=EXCLUDED.contact_phone, purpose=EXCLUDED.purpose,
-         purpose_id=EXCLUDED.purpose_id, document_photo=EXCLUDED.document_photo
+         purpose_id=EXCLUDED.purpose_id, max_plot_area_rai=EXCLUDED.max_plot_area_rai, document_photo=EXCLUDED.document_photo
        RETURNING *`,
       [entity.id, entity.name, entity.registrationNo || null, entity.district || null, entity.province || null,
        entity.postcode || null, entity.registeredDate || null, entity.chairperson || null,
-       entity.contactPhone || null, entity.purpose || null, entity.purposeId || null, entity.documentPhoto || null]
+       entity.contactPhone || null, entity.purpose || null, entity.purposeId || null,
+       entity.maxPlotAreaRai != null && entity.maxPlotAreaRai !== '' ? Number(entity.maxPlotAreaRai) : null,
+       entity.documentPhoto || null]
     );
     return communityEnterpriseRowToObj(rows[0]);
   }

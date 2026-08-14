@@ -109,7 +109,10 @@ function createMemoryStore() {
       return communityEnterprises.get(id) || null;
     },
     async upsertCommunityEnterprise(entity) {
-      const saved = { ...entity };
+      // Normalize to null (not undefined) when absent, matching the real Postgres column's
+      // NULL default -- otherwise this key would silently vanish from JSON responses here
+      // (JSON.stringify drops undefined-valued keys) while Postgres would return null.
+      const saved = { ...entity, maxPlotAreaRai: entity.maxPlotAreaRai != null && entity.maxPlotAreaRai !== '' ? Number(entity.maxPlotAreaRai) : null };
       communityEnterprises.set(entity.id, saved);
       return saved;
     },

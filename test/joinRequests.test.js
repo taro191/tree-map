@@ -63,7 +63,50 @@ test('GET /api/purposes and /api/community-enterprises are public (no auth neede
   assert.equal(res.status, 200);
   list = await res.json();
   assert.equal(list.length, 1);
-  assert.deepEqual(Object.keys(list[0]).sort(), ['id', 'name', 'purposeId']);
+  assert.deepEqual(Object.keys(list[0]).sort(), ['id', 'maxPlotAreaRai', 'name', 'purposeId']);
+
+  server.close();
+});
+
+test('linking a plot whose area exceeds the group\'s max plot size condition is rejected', async () => {
+  const { server, base } = await startServer();
+  const { cookie } = await registerAdmin(base, 'join_admin6@example.com');
+
+  const purpose = await (await fetch(`${base}/api/admin/purposes`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie },
+    body: JSON.stringify({ name: 'เพื่อกลุ่มไร่อ้อย' })
+  })).json();
+  await fetch(`${base}/api/admin/community-enterprises/ceMax`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', Cookie: cookie },
+    body: JSON.stringify({ name: 'กลุ่มจำกัดขนาด', purposeId: purpose.id, maxPlotAreaRai: 10 })
+  });
+
+  // plot bigger than the 10-rai cap -> rejected
+  let res = await fetch(`${base}/api/plots/pBig`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'แปลงใหญ่เกิน', boundary: [], areaRai: '15', purposeId: purpose.id, communityEnterpriseId: 'ceMax' })
+  });
+  assert.equal(res.status, 400);
+
+  // plot within the cap -> accepted as pending
+  res = await fetch(`${base}/api/plots/pSmall`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'แปลงเล็กพอ', boundary: [], areaRai: '8', purposeId: purpose.id, communityEnterpriseId: 'ceMax' })
+  });
+  assert.equal(res.status, 200);
+  const plot = await res.json();
+  assert.equal(plot.communityEnterpriseStatus, 'pending');
+
+  // a group with no size condition (null) accepts any size
+  await fetch(`${base}/api/admin/community-enterprises/ceNoLimit`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', Cookie: cookie },
+    body: JSON.stringify({ name: 'กลุ่มไม่จำกัดขนาด', purposeId: purpose.id })
+  });
+  res = await fetch(`${base}/api/plots/pHuge`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'แปลงใหญ่มาก', boundary: [], areaRai: '25', purposeId: purpose.id, communityEnterpriseId: 'ceNoLimit' })
+  });
+  assert.equal(res.status, 200);
 
   server.close();
 });

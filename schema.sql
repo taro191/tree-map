@@ -106,3 +106,6 @@ ALTER TABLE community_enterprises ADD COLUMN IF NOT EXISTS purpose_id TEXT REFER
 -- Tracks whether a plot's community-enterprise link is a pending join request awaiting
 -- the group's approval, or already approved. NULL when the plot isn't linked to any group.
 ALTER TABLE plots ADD COLUMN IF NOT EXISTS community_enterprise_status TEXT;
+
+-- Membership condition: largest plot size (in rai) the group accepts. NULL means no limit.
+ALTER TABLE community_enterprises ADD COLUMN IF NOT EXISTS max_plot_area_rai NUMERIC;
