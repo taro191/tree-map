@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.48</title>
+<title>ระบบแผนที่ต้นไม้ v1.49</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <style>
   :root{
@@ -208,7 +208,11 @@
     filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));
   }
   .flag-pin.ref .flag-tri{border-color:transparent transparent transparent #DC2626;}
-  .flag-pin.tree .flag-tri{border-color:transparent transparent transparent #F97316;}
+  .tree-dot-wrap{position:relative;width:14px;height:14px;}
+  .tree-dot{
+    position:absolute;left:0;top:0;width:14px;height:14px;border-radius:50%;
+    background:#F97316;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);
+  }
   .tree-flag-label{
     position:absolute;left:20px;top:-3px;background:white;border:1.5px solid #F97316;
     border-radius:8px;padding:0 5px;font-size:10.5px;font-weight:700;color:#333;
@@ -308,13 +312,13 @@
         <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
       </div>
     </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.48</span></h1>
+    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.49</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.48</span></p>
+      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.49</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -1673,8 +1677,8 @@ function renderTreeTab(){
 function treeFlagIcon(seq){
   return L.divIcon({
     className:'',
-    html:`<div class="flag-pin tree"><div class="pole"></div><div class="flag-tri"></div><div class="tree-flag-label">${seq}</div></div>`,
-    iconSize:[46,32], iconAnchor:[4,30]
+    html:`<div class="tree-dot-wrap"><div class="tree-dot"></div><div class="tree-flag-label">${seq}</div></div>`,
+    iconSize:[40,14], iconAnchor:[7,7]
   });
 }
 
