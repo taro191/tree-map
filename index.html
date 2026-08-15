@@ -213,11 +213,6 @@
     position:absolute;left:0;top:0;width:8px;height:8px;border-radius:50%;
     background:#F97316;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);
   }
-  .tree-flag-label{
-    position:absolute;left:14px;top:-4px;background:white;border:1.5px solid #F97316;
-    border-radius:8px;padding:0 5px;font-size:10.5px;font-weight:700;color:#333;
-    white-space:nowrap;line-height:15px;box-shadow:0 1px 3px rgba(0,0,0,.25);
-  }
 
   #crosshair-banner{
     position:absolute;top:calc(env(safe-area-inset-top,0px) + 62px);left:50%;transform:translateX(-50%);
@@ -1677,8 +1672,8 @@ function renderTreeTab(){
 function treeFlagIcon(seq){
   return L.divIcon({
     className:'',
-    html:`<div class="tree-dot-wrap"><div class="tree-dot"></div><div class="tree-flag-label">${seq}</div></div>`,
-    iconSize:[34,8], iconAnchor:[4,4]
+    html:`<div class="tree-dot-wrap"><div class="tree-dot"></div></div>`,
+    iconSize:[8,8], iconAnchor:[4,4]
   });
 }
 
