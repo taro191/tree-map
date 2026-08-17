@@ -16,6 +16,11 @@ const MAP_H_MM = 240;
 // simply clipped by the frame instead of needing to shrink to fit.
 const CONTENT_SIZE_MM = 250;
 
+// Each +/- click moves half a zoom level for finer control; the map itself
+// must allow fractional zoom (see zoomSnap on MapView below) or Leaflet
+// would just round this back to a whole level.
+const ZOOM_STEP = 0.5;
+
 function NorthArrow({ rotation }) {
   return (
     <div
@@ -100,7 +105,7 @@ export default function PlotPrint() {
   function zoomBy(delta) {
     const map = mapRef.current;
     if (!map) return;
-    map.setZoom(map.getZoom() + delta);
+    map.setZoom(map.getZoom() + delta * ZOOM_STEP);
   }
 
   return (
@@ -137,6 +142,7 @@ export default function PlotPrint() {
             plots={[plot]} trees={trees} selectedPlotId={plot.id} onSelectPlot={() => {}}
             onMapReady={m => { mapRef.current = m; }}
             zoomControl={false}
+            zoomSnap={ZOOM_STEP}
           />
         </div>
         <ZoomButtons onZoomIn={() => zoomBy(1)} onZoomOut={() => zoomBy(-1)} />
