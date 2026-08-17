@@ -822,6 +822,20 @@ function polygonAreaSqMeters(boundary){
   return Math.abs(area) / 2;
 }
 
+// Ray-casting point-in-polygon test on raw lat/lng — accurate enough for
+// containment checks within a single small plot (no need for UTM projection).
+function isPointInPolygon(lat, lng, boundary){
+  let inside = false;
+  for(let i=0, j=boundary.length-1; i<boundary.length; j=i++){
+    const yi = boundary[i].lat, xi = boundary[i].lng;
+    const yj = boundary[j].lat, xj = boundary[j].lng;
+    const intersects = ((yi > lat) !== (yj > lat)) &&
+      (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+    if(intersects) inside = !inside;
+  }
+  return inside;
+}
+
 // 1 ไร่ = 4 งาน = 400 ตารางวา = 1600 ตร.ม., 1 งาน = 100 ตารางวา = 400 ตร.ม., 1 ตารางวา = 4 ตร.ม.
 function computeAreaFromBoundary(boundary){
   const sqm = polygonAreaSqMeters(boundary);
@@ -2477,6 +2491,11 @@ document.getElementById('btn-save-tree').onclick = async ()=>{
   const lat = Number(document.getElementById('in-tree-lat').value);
   const lng = Number(document.getElementById('in-tree-lng').value);
   if(!Number.isFinite(lat) || !Number.isFinite(lng)){ alert('กรุณาระบุพิกัด lat/lng ให้ถูกต้อง'); return; }
+  const plotForTree = plots.find(p=>p.id===selectedPlotId);
+  if(plotForTree && plotForTree.boundary && plotForTree.boundary.length >= 3 && !isPointInPolygon(lat, lng, plotForTree.boundary)){
+    alert('ต้นไม้ไม่ได้อยู่ในแผนที่ (ตำแหน่งอยู่นอกขอบเขตแปลง) กรุณาแก้ไขตำแหน่งก่อนบันทึก');
+    return;
+  }
   const seq = Number(document.getElementById('in-tree-seq').value);
   if(!seq || seq < 1){ alert('กรุณากรอกลำดับที่ให้ถูกต้อง'); return; }
   const name = document.getElementById('in-tree-name').value.trim();
