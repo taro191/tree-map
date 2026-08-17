@@ -8,7 +8,7 @@ import MapView, { computeBounds } from '../components/MapView';
 // each side): full 186mm width, and enough height to leave room above for
 // the plot-info text block while still nearly filling the 273mm content height.
 const MAP_W_MM = 186;
-const MAP_H_MM = 250;
+const MAP_H_MM = 240;
 
 // A 90/270deg rotation swaps the map's bounding box to MAP_H_MM x MAP_W_MM,
 // which doesn't fit the (non-square) frame -- scale it down just enough so
