@@ -21,6 +21,47 @@ function normalizePhone(phone) {
   return (phone || '').replace(/[\s-]/g, '');
 }
 
+// Ray-casting point-in-polygon test on raw lat/lng — same algorithm as the
+// client-side check in index.html, kept in sync manually since there's no
+// shared module between the client and server here.
+function isPointInPolygon(lat, lng, boundary) {
+  let inside = false;
+  for (let i = 0, j = boundary.length - 1; i < boundary.length; j = i++) {
+    const yi = boundary[i].lat, xi = boundary[i].lng;
+    const yj = boundary[j].lat, xj = boundary[j].lng;
+    const intersects = ((yi > lat) !== (yj > lat)) &&
+      (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
+// Squared distance (in degrees) from point (px,py) to segment (x1,y1)-(x2,y2).
+function pointToSegmentDistSq(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  if (dx === 0 && dy === 0) return (px - x1) ** 2 + (py - y1) ** 2;
+  let t = ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy);
+  t = Math.max(0, Math.min(1, t));
+  const cx = x1 + t * dx, cy = y1 + t * dy;
+  return (px - cx) ** 2 + (py - cy) ** 2;
+}
+
+// ~2m tolerance (roughly, in degrees) so a point sitting right on the drawn
+// boundary line -- easily possible given GPS accuracy or floating-point
+// rounding -- still counts as inside instead of being rejected on a
+// technicality.
+const BOUNDARY_TOLERANCE_DEG = 0.00002;
+
+function isPointWithinPlotBoundary(lat, lng, boundary) {
+  if (isPointInPolygon(lat, lng, boundary)) return true;
+  const tolSq = BOUNDARY_TOLERANCE_DEG ** 2;
+  for (let i = 0, j = boundary.length - 1; i < boundary.length; j = i++) {
+    const d2 = pointToSegmentDistSq(lng, lat, boundary[j].lng, boundary[j].lat, boundary[i].lng, boundary[i].lat);
+    if (d2 <= tolSq) return true;
+  }
+  return false;
+}
+
 function validateRegistration(email, phone, password) {
   if (!email && !phone) return 'must provide an email or phone number';
   if (email && !EMAIL_RE.test(email)) return 'invalid email';
@@ -222,6 +263,9 @@ function createApp(store) {
       if (!plot) return res.status(404).json({ error: 'plot not found' });
       if (LOCKED_PLOT_STATUSES.includes(plot.status)) {
         return res.status(409).json({ error: PLOT_LOCKED_MESSAGE });
+      }
+      if (plot.boundary && plot.boundary.length >= 3 && !isPointWithinPlotBoundary(lat, lng, plot.boundary)) {
+        return res.status(400).json({ error: 'ต้นไม้ไม่ได้อยู่ในแผนที่ (ตำแหน่งอยู่นอกขอบเขตแปลง)' });
       }
       const isNew = !(await store.findTreeById(req.params.id));
       const tree = { ...req.body, id: req.params.id };

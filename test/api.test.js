@@ -231,6 +231,49 @@ test('tree code/codePhoto round-trip and edit (seq, photo, code) via upsert', as
   server.close();
 });
 
+test('rejects a tree whose position falls outside the plot boundary', async () => {
+  const { server, base } = await startServer();
+
+  // roughly a 100m x 100m square plot
+  await fetch(`${base}/api/plots/p1`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: 'แปลง A1',
+      boundary: [{ lat: 13.750, lng: 100.500 }, { lat: 13.751, lng: 100.500 }, { lat: 13.751, lng: 100.502 }, { lat: 13.750, lng: 100.502 }]
+    })
+  });
+
+  // outside the boundary -> rejected
+  let res = await fetch(`${base}/api/trees/t1`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plotId: 'p1', seq: 1, lat: 13.760, lng: 100.510 })
+  });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).error, /นอกขอบเขต/);
+
+  res = await fetch(`${base}/api/trees`);
+  assert.deepEqual(await res.json(), []);
+
+  // inside the boundary -> accepted
+  res = await fetch(`${base}/api/trees/t1`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plotId: 'p1', seq: 1, lat: 13.7505, lng: 100.501 })
+  });
+  assert.equal(res.status, 200);
+
+  res = await fetch(`${base}/api/trees`);
+  assert.equal((await res.json()).length, 1);
+
+  // editing an existing tree to a position outside the boundary is rejected too
+  res = await fetch(`${base}/api/trees/t1`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plotId: 'p1', seq: 1, lat: 13.760, lng: 100.510 })
+  });
+  assert.equal(res.status, 400);
+
+  server.close();
+});
+
 test('deleting a nonexistent tree is idempotent', async () => {
   const { server, base } = await startServer();
   const res = await fetch(`${base}/api/trees/does-not-exist`, { method: 'DELETE' });
