@@ -1,8 +1,14 @@
 import { useMemo, useRef } from 'react';
-import { MapContainer, TileLayer, Polygon, Polyline, CircleMarker, Tooltip, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import { MapContainer, TileLayer, Polygon, Polyline, CircleMarker, Marker, Tooltip, useMap } from 'react-leaflet';
 
 const PATH_LINE_COLOR = '#2563EB';
-const REF_POINT_COLOR = '#DC2626';
+
+const refFlagIcon = L.divIcon({
+  className: '',
+  html: `<div class="ref-flag-pin"><div class="pole"></div><div class="flag-tri"></div></div>`,
+  iconSize: [16, 20], iconAnchor: [2.5, 17]
+});
 
 function plotPathLatLngs(plot, plotTrees) {
   const points = [];
@@ -64,14 +70,9 @@ export default function MapView({ plots, trees, selectedPlotId, onSelectPlot }) 
         ) : null;
       })}
       {plots.filter(p => p.refPoint).map(p => (
-        <CircleMarker
-          key={`ref-${p.id}`}
-          center={[p.refPoint.lat, p.refPoint.lng]}
-          radius={7}
-          pathOptions={{ color: REF_POINT_COLOR, fillColor: REF_POINT_COLOR, fillOpacity: 0.9 }}
-        >
+        <Marker key={`ref-${p.id}`} position={[p.refPoint.lat, p.refPoint.lng]} icon={refFlagIcon}>
           <Tooltip>{`🚩 จุดอ้างอิง: ${p.name}`}</Tooltip>
-        </CircleMarker>
+        </Marker>
       ))}
       {trees.map(t => (
         <CircleMarker
