@@ -108,7 +108,7 @@ export default function PlotPrint() {
 
       <div
         className="relative mx-auto overflow-hidden rounded border border-stone-300 print:rounded-none print:border-black"
-        style={{ width: `${MAP_W_MM}mm`, height: `${MAP_H_MM}mm` }}
+        style={{ width: `${MAP_W_MM}mm`, height: `${MAP_H_MM}mm`, clipPath: 'inset(0)' }}
       >
         <div className="h-full w-full" style={{ transform: `rotate(${rotation}deg) scale(${rotationScale(rotation)})` }}>
           <MapView
