@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import PlotStatusModal from './PlotStatusModal';
+import PlotLayoutModal from './PlotLayoutModal';
 
 const FIELDS = [
   ['name', 'ชื่อแปลง'],
@@ -41,6 +42,7 @@ export default function PlotsTable({ plots, trees, purposes = [], selectedPlotId
   const [draft, setDraft] = useState({});
   const [busyId, setBusyId] = useState(null);
   const [reviewingPlot, setReviewingPlot] = useState(null);
+  const [layoutPlot, setLayoutPlot] = useState(null);
   const purposesById = new Map(purposes.map(p => [p.id, p.name]));
 
   function startEdit(plot) {
@@ -131,6 +133,7 @@ export default function PlotsTable({ plots, trees, purposes = [], selectedPlotId
                         className="rounded border border-stone-300 px-2 py-1 text-xs hover:border-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
                       >แก้ไข</button>
                       <button onClick={() => setReviewingPlot(p)} className="rounded border border-blue-200 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50">จัดการสถานะ</button>
+                      <button onClick={() => setLayoutPlot(p)} className="rounded border border-emerald-200 px-2 py-1 text-xs text-emerald-700 hover:bg-emerald-50">ผังต้นไม้</button>
                       <button disabled={busyId === p.id} onClick={() => remove(p.id)} className="rounded border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50">ลบ</button>
                     </div>
                   )}
@@ -149,6 +152,9 @@ export default function PlotsTable({ plots, trees, purposes = [], selectedPlotId
           onClose={() => setReviewingPlot(null)}
           onSave={(status, note, photos) => onUpdateStatus(reviewingPlot.id, status, note, photos)}
         />
+      )}
+      {layoutPlot && (
+        <PlotLayoutModal plot={layoutPlot} trees={trees} onClose={() => setLayoutPlot(null)} />
       )}
     </div>
   );
