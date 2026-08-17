@@ -16,10 +16,10 @@ const MAP_H_MM = 240;
 // simply clipped by the frame instead of needing to shrink to fit.
 const CONTENT_SIZE_MM = 250;
 
-// Each +/- click moves half a zoom level for finer control; the map itself
-// must allow fractional zoom (see zoomSnap on MapView below) or Leaflet
-// would just round this back to a whole level.
-const ZOOM_STEP = 0.5;
+// Each +/- click moves this many zoom levels; the map itself must allow
+// fractional zoom (see zoomSnap on MapView below) or Leaflet would just
+// round this back to a whole level.
+const ZOOM_STEP = 0.25;
 
 function NorthArrow({ rotation }) {
   return (
