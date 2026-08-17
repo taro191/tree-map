@@ -10,16 +10,11 @@ import MapView, { computeBounds } from '../components/MapView';
 const MAP_W_MM = 186;
 const MAP_H_MM = 240;
 
-// A 90/270deg rotation swaps the map's bounding box to MAP_H_MM x MAP_W_MM,
-// which doesn't fit the (fixed, non-square) frame -- scale it down just
-// enough so the rotated content stays fully visible instead of clipping.
-function rotationScale(rotation) {
-  const rot = ((rotation % 360) + 360) % 360;
-  if (rot === 90 || rot === 270) {
-    return Math.min(MAP_W_MM / MAP_H_MM, MAP_H_MM / MAP_W_MM);
-  }
-  return 1;
-}
+// The map is loaded at a size bigger than the frame in every direction, so a
+// 90/270deg rotation (which doesn't change a square's footprint) always
+// leaves the frame fully covered by real map content -- the overflow is
+// simply clipped by the frame instead of needing to shrink to fit.
+const CONTENT_SIZE_MM = 250;
 
 function NorthArrow({ rotation }) {
   return (
@@ -110,7 +105,10 @@ export default function PlotPrint() {
         className="relative mx-auto overflow-hidden rounded border border-stone-300 print:rounded-none print:border-black"
         style={{ width: `${MAP_W_MM}mm`, height: `${MAP_H_MM}mm`, clipPath: 'inset(0)' }}
       >
-        <div className="h-full w-full" style={{ transform: `rotate(${rotation}deg) scale(${rotationScale(rotation)})` }}>
+        <div
+          className="absolute left-1/2 top-1/2"
+          style={{ width: `${CONTENT_SIZE_MM}mm`, height: `${CONTENT_SIZE_MM}mm`, transform: `translate(-50%, -50%) rotate(${rotation}deg)` }}
+        >
           <MapView
             plots={[plot]} trees={trees} selectedPlotId={plot.id} onSelectPlot={() => {}}
             onMapReady={m => { mapRef.current = m; }}
