@@ -4,7 +4,22 @@ import { useAuth } from '../AuthContext';
 import { api } from '../api';
 import MapView, { computeBounds } from '../components/MapView';
 
-const MAP_SIZE_MM = 170; // square so 90deg rotation never clips or leaves gaps
+// Fills the A4 printable area (210x297mm minus the 12mm @page margin on
+// each side): full 186mm width, and enough height to leave room above for
+// the plot-info text block while still nearly filling the 273mm content height.
+const MAP_W_MM = 186;
+const MAP_H_MM = 250;
+
+// A 90/270deg rotation swaps the map's bounding box to MAP_H_MM x MAP_W_MM,
+// which doesn't fit the (non-square) frame -- scale it down just enough so
+// the rotated content stays fully visible instead of getting clipped.
+function rotationScale(rotation) {
+  const rot = ((rotation % 360) + 360) % 360;
+  if (rot === 90 || rot === 270) {
+    return Math.min(MAP_W_MM / MAP_H_MM, MAP_H_MM / MAP_W_MM);
+  }
+  return 1;
+}
 
 function NorthArrow({ rotation }) {
   return (
@@ -93,9 +108,9 @@ export default function PlotPrint() {
 
       <div
         className="relative mx-auto overflow-hidden rounded border border-stone-300 print:rounded-none print:border-black"
-        style={{ width: `${MAP_SIZE_MM}mm`, height: `${MAP_SIZE_MM}mm` }}
+        style={{ width: `${MAP_W_MM}mm`, height: `${MAP_H_MM}mm` }}
       >
-        <div className="h-full w-full" style={{ transform: `rotate(${rotation}deg)` }}>
+        <div className="h-full w-full" style={{ transform: `rotate(${rotation}deg) scale(${rotationScale(rotation)})` }}>
           <MapView
             plots={[plot]} trees={trees} selectedPlotId={plot.id} onSelectPlot={() => {}}
             onMapReady={m => { mapRef.current = m; }}
