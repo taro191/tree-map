@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import L from 'leaflet';
 import { MapContainer, TileLayer, Polygon, Polyline, CircleMarker, Marker, Tooltip, useMap } from 'react-leaflet';
 
@@ -17,6 +17,16 @@ function plotPathLatLngs(plot, plotTrees) {
   return points;
 }
 
+export function computeBounds(plots, trees) {
+  const pts = [];
+  plots.forEach(p => {
+    (p.boundary || []).forEach(pt => pts.push([pt.lat, pt.lng]));
+    if (p.refPoint) pts.push([p.refPoint.lat, p.refPoint.lng]);
+  });
+  trees.forEach(t => pts.push([t.lat, t.lng]));
+  return pts.length ? pts : null;
+}
+
 function FitBounds({ bounds }) {
   const map = useMap();
   const fitted = useRef(false);
@@ -27,16 +37,14 @@ function FitBounds({ bounds }) {
   return null;
 }
 
-export default function MapView({ plots, trees, selectedPlotId, onSelectPlot }) {
-  const bounds = useMemo(() => {
-    const pts = [];
-    plots.forEach(p => {
-      (p.boundary || []).forEach(pt => pts.push([pt.lat, pt.lng]));
-      if (p.refPoint) pts.push([p.refPoint.lat, p.refPoint.lng]);
-    });
-    trees.forEach(t => pts.push([t.lat, t.lng]));
-    return pts.length ? pts : null;
-  }, [plots, trees]);
+function MapReadyNotifier({ onReady }) {
+  const map = useMap();
+  useEffect(() => { onReady(map); }, [map, onReady]);
+  return null;
+}
+
+export default function MapView({ plots, trees, selectedPlotId, onSelectPlot, onMapReady }) {
+  const bounds = useMemo(() => computeBounds(plots, trees), [plots, trees]);
 
   return (
     <MapContainer center={[13.7563, 100.5018]} zoom={6} className="h-full w-full">
@@ -45,6 +53,7 @@ export default function MapView({ plots, trees, selectedPlotId, onSelectPlot }) 
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       {bounds && <FitBounds bounds={bounds} />}
+      {onMapReady && <MapReadyNotifier onReady={onMapReady} />}
       {plots.filter(p => p.boundary && p.boundary.length >= 3).map(p => (
         <Polygon
           key={p.id}

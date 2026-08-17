@@ -1,10 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { api } from '../api';
-import MapView from '../components/MapView';
+import MapView, { computeBounds } from '../components/MapView';
 
 const MAP_SIZE_MM = 170; // square so 90deg rotation never clips or leaves gaps
+
+// Bias fitBounds padding so the plot lands on the visual left side of the
+// (possibly rotated) square frame -- CW rotation cycles which original edge
+// ends up on-screen-left: 0deg->left, 90deg->bottom, 180deg->right, 270deg->top.
+function leftBiasPadding(rotation, size) {
+  const big = Math.max(size.x, size.y) * 0.55;
+  const small = 20;
+  switch (((rotation % 360) + 360) % 360) {
+    case 90: return { paddingTopLeft: [small, big], paddingBottomRight: [small, small] };
+    case 180: return { paddingTopLeft: [big, small], paddingBottomRight: [small, small] };
+    case 270: return { paddingTopLeft: [small, small], paddingBottomRight: [small, big] };
+    default: return { paddingTopLeft: [small, small], paddingBottomRight: [big, small] };
+  }
+}
 
 function NorthArrow({ rotation }) {
   return (
@@ -29,6 +43,7 @@ export default function PlotPrint() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [rotation, setRotation] = useState(0);
+  const mapRef = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -61,12 +76,20 @@ export default function PlotPrint() {
     setRotation(r => (r + delta + 360) % 360);
   }
 
+  function centerLeft() {
+    const map = mapRef.current;
+    const bounds = computeBounds([plot], trees);
+    if (!map || !bounds) return;
+    map.fitBounds(bounds, leftBiasPadding(rotation, map.getSize()));
+  }
+
   return (
     <div className="mx-auto max-w-[210mm] bg-white p-6 print:max-w-none print:p-0">
       <div className="mb-4 flex items-center justify-between print:hidden">
         <h1 className="text-lg font-bold text-slate-700">ผังต้นไม้: {plot.name}</h1>
         <div className="flex items-center gap-2">
           <button onClick={() => rotateBy(-90)} className="rounded border border-gray-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:border-emerald-600 hover:text-emerald-700">⟲ หมุนซ้าย 90°</button>
+          <button onClick={centerLeft} className="rounded border border-gray-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:border-emerald-600 hover:text-emerald-700">🎯 เซนเตอร์</button>
           <button onClick={() => rotateBy(90)} className="rounded border border-gray-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:border-emerald-600 hover:text-emerald-700">⟳ หมุนขวา 90°</button>
           <button
             onClick={() => window.print()}
@@ -87,7 +110,10 @@ export default function PlotPrint() {
         style={{ width: `${MAP_SIZE_MM}mm`, height: `${MAP_SIZE_MM}mm` }}
       >
         <div className="h-full w-full" style={{ transform: `rotate(${rotation}deg)` }}>
-          <MapView plots={[plot]} trees={trees} selectedPlotId={plot.id} onSelectPlot={() => {}} />
+          <MapView
+            plots={[plot]} trees={trees} selectedPlotId={plot.id} onSelectPlot={() => {}}
+            onMapReady={m => { mapRef.current = m; }}
+          />
         </div>
         <NorthArrow rotation={rotation} />
       </div>
