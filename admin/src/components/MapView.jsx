@@ -78,7 +78,7 @@ export default function MapView({ plots, trees, selectedPlotId, onSelectPlot }) 
         <CircleMarker
           key={t.id}
           center={[t.lat, t.lng]}
-          radius={5}
+          radius={1.25}
           pathOptions={{ color: '#A6612E', fillColor: '#A6612E', fillOpacity: 0.9 }}
         >
           <Tooltip>{`ต้นที่ ${t.seq}${t.name ? ' · ' + t.name : ''}`}</Tooltip>
