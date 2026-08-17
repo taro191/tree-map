@@ -10,17 +10,6 @@ import MapView, { computeBounds } from '../components/MapView';
 const MAP_W_MM = 186;
 const MAP_H_MM = 240;
 
-// A 90/270deg rotation swaps the map's bounding box to MAP_H_MM x MAP_W_MM,
-// which doesn't fit the (non-square) frame -- scale it down just enough so
-// the rotated content stays fully visible instead of getting clipped.
-function rotationScale(rotation) {
-  const rot = ((rotation % 360) + 360) % 360;
-  if (rot === 90 || rot === 270) {
-    return Math.min(MAP_W_MM / MAP_H_MM, MAP_H_MM / MAP_W_MM);
-  }
-  return 1;
-}
-
 function NorthArrow({ rotation }) {
   return (
     <div
@@ -84,8 +73,13 @@ export default function PlotPrint() {
     map.fitBounds(bounds, { padding: [8, 8] });
   }
 
+  const isLandscape = rotation === 90 || rotation === 270;
+  const frameW = isLandscape ? MAP_H_MM : MAP_W_MM;
+  const frameH = isLandscape ? MAP_W_MM : MAP_H_MM;
+
   return (
     <div className="mx-auto max-w-[210mm] bg-white p-6 print:max-w-none print:p-0">
+      <style>{`@media print { @page { size: A4 ${isLandscape ? 'landscape' : 'portrait'}; margin: 12mm; } }`}</style>
       <div className="mb-4 flex items-center justify-between print:hidden">
         <h1 className="text-lg font-bold text-slate-700">ผังต้นไม้: {plot.name}</h1>
         <div className="flex items-center gap-2">
@@ -108,9 +102,12 @@ export default function PlotPrint() {
 
       <div
         className="relative mx-auto overflow-hidden rounded border border-stone-300 print:rounded-none print:border-black"
-        style={{ width: `${MAP_W_MM}mm`, height: `${MAP_H_MM}mm`, clipPath: 'inset(0)' }}
+        style={{ width: `${frameW}mm`, height: `${frameH}mm`, clipPath: 'inset(0)' }}
       >
-        <div className="h-full w-full" style={{ transform: `rotate(${rotation}deg) scale(${rotationScale(rotation)})` }}>
+        <div
+          className="absolute left-1/2 top-1/2"
+          style={{ width: `${MAP_W_MM}mm`, height: `${MAP_H_MM}mm`, transform: `translate(-50%, -50%) rotate(${rotation}deg)` }}
+        >
           <MapView
             plots={[plot]} trees={trees} selectedPlotId={plot.id} onSelectPlot={() => {}}
             onMapReady={m => { mapRef.current = m; }}
