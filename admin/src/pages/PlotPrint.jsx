@@ -6,20 +6,6 @@ import MapView, { computeBounds } from '../components/MapView';
 
 const MAP_SIZE_MM = 170; // square so 90deg rotation never clips or leaves gaps
 
-// Bias fitBounds padding so the plot lands on the visual left side of the
-// (possibly rotated) square frame -- CW rotation cycles which original edge
-// ends up on-screen-left: 0deg->left, 90deg->bottom, 180deg->right, 270deg->top.
-function leftBiasPadding(rotation, size) {
-  const big = Math.max(size.x, size.y) * 0.55;
-  const small = 20;
-  switch (((rotation % 360) + 360) % 360) {
-    case 90: return { paddingTopLeft: [small, big], paddingBottomRight: [small, small] };
-    case 180: return { paddingTopLeft: [big, small], paddingBottomRight: [small, small] };
-    case 270: return { paddingTopLeft: [small, small], paddingBottomRight: [small, big] };
-    default: return { paddingTopLeft: [small, small], paddingBottomRight: [big, small] };
-  }
-}
-
 function NorthArrow({ rotation }) {
   return (
     <div
@@ -76,11 +62,11 @@ export default function PlotPrint() {
     setRotation(r => (r + delta + 360) % 360);
   }
 
-  function centerLeft() {
+  function centerToFrame() {
     const map = mapRef.current;
     const bounds = computeBounds([plot], trees);
     if (!map || !bounds) return;
-    map.fitBounds(bounds, leftBiasPadding(rotation, map.getSize()));
+    map.fitBounds(bounds, { padding: [8, 8] });
   }
 
   return (
@@ -89,7 +75,7 @@ export default function PlotPrint() {
         <h1 className="text-lg font-bold text-slate-700">ผังต้นไม้: {plot.name}</h1>
         <div className="flex items-center gap-2">
           <button onClick={() => rotateBy(-90)} className="rounded border border-gray-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:border-emerald-600 hover:text-emerald-700">⟲ หมุนซ้าย 90°</button>
-          <button onClick={centerLeft} className="rounded border border-gray-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:border-emerald-600 hover:text-emerald-700">🎯 เซนเตอร์</button>
+          <button onClick={centerToFrame} className="rounded border border-gray-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:border-emerald-600 hover:text-emerald-700">🎯 เซนเตอร์</button>
           <button onClick={() => rotateBy(90)} className="rounded border border-gray-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:border-emerald-600 hover:text-emerald-700">⟳ หมุนขวา 90°</button>
           <button
             onClick={() => window.print()}
