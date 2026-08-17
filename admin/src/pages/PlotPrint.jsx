@@ -31,6 +31,24 @@ function NorthArrow({ rotation }) {
   );
 }
 
+// A custom zoom control, since the built-in Leaflet one lives inside the
+// oversized/rotated map content (see CONTENT_SIZE_MM below) and would be
+// clipped away by the frame no matter which corner it's anchored to.
+function ZoomButtons({ onZoomIn, onZoomOut }) {
+  return (
+    <div className="absolute right-12 top-3 z-[500] flex flex-col overflow-hidden rounded shadow print:hidden">
+      <button
+        onClick={onZoomIn}
+        className="flex h-7 w-7 items-center justify-center border-b border-gray-200 bg-white text-base font-bold leading-none text-slate-700 hover:bg-gray-100"
+      >+</button>
+      <button
+        onClick={onZoomOut}
+        className="flex h-7 w-7 items-center justify-center bg-white text-base font-bold leading-none text-slate-700 hover:bg-gray-100"
+      >−</button>
+    </div>
+  );
+}
+
 export default function PlotPrint() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -79,6 +97,12 @@ export default function PlotPrint() {
     map.fitBounds(bounds, { padding: [8, 8] });
   }
 
+  function zoomBy(delta) {
+    const map = mapRef.current;
+    if (!map) return;
+    map.setZoom(map.getZoom() + delta);
+  }
+
   return (
     <div className="mx-auto max-w-[210mm] bg-white p-6 print:max-w-none print:p-0">
       <div className="mb-4 flex items-center justify-between print:hidden">
@@ -112,8 +136,10 @@ export default function PlotPrint() {
           <MapView
             plots={[plot]} trees={trees} selectedPlotId={plot.id} onSelectPlot={() => {}}
             onMapReady={m => { mapRef.current = m; }}
+            zoomControl={false}
           />
         </div>
+        <ZoomButtons onZoomIn={() => zoomBy(1)} onZoomOut={() => zoomBy(-1)} />
         <NorthArrow rotation={rotation} />
       </div>
     </div>

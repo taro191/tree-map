@@ -43,11 +43,11 @@ function MapReadyNotifier({ onReady }) {
   return null;
 }
 
-export default function MapView({ plots, trees, selectedPlotId, onSelectPlot, onMapReady }) {
+export default function MapView({ plots, trees, selectedPlotId, onSelectPlot, onMapReady, zoomControl = true }) {
   const bounds = useMemo(() => computeBounds(plots, trees), [plots, trees]);
 
   return (
-    <MapContainer center={[13.7563, 100.5018]} zoom={6} maxZoom={21} className="h-full w-full">
+    <MapContainer center={[13.7563, 100.5018]} zoom={6} maxZoom={21} zoomControl={zoomControl} className="h-full w-full">
       <TileLayer
         attribution="&copy; OpenStreetMap contributors"
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
