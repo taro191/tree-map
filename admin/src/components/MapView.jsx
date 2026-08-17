@@ -1,5 +1,15 @@
 import { useMemo, useRef } from 'react';
-import { MapContainer, TileLayer, Polygon, CircleMarker, Tooltip, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Polyline, CircleMarker, Tooltip, useMap } from 'react-leaflet';
+
+const PATH_LINE_COLOR = '#2563EB';
+const REF_POINT_COLOR = '#DC2626';
+
+function plotPathLatLngs(plot, plotTrees) {
+  const points = [];
+  if (plot.refPoint) points.push([plot.refPoint.lat, plot.refPoint.lng]);
+  plotTrees.slice().sort((a, b) => (a.seq || 0) - (b.seq || 0)).forEach(t => points.push([t.lat, t.lng]));
+  return points;
+}
 
 function FitBounds({ bounds }) {
   const map = useMap();
@@ -14,7 +24,10 @@ function FitBounds({ bounds }) {
 export default function MapView({ plots, trees, selectedPlotId, onSelectPlot }) {
   const bounds = useMemo(() => {
     const pts = [];
-    plots.forEach(p => (p.boundary || []).forEach(pt => pts.push([pt.lat, pt.lng])));
+    plots.forEach(p => {
+      (p.boundary || []).forEach(pt => pts.push([pt.lat, pt.lng]));
+      if (p.refPoint) pts.push([p.refPoint.lat, p.refPoint.lng]);
+    });
     trees.forEach(t => pts.push([t.lat, t.lng]));
     return pts.length ? pts : null;
   }, [plots, trees]);
@@ -39,6 +52,26 @@ export default function MapView({ plots, trees, selectedPlotId, onSelectPlot }) 
         >
           <Tooltip sticky>{p.name}</Tooltip>
         </Polygon>
+      ))}
+      {plots.map(p => {
+        const path = plotPathLatLngs(p, trees.filter(t => t.plotId === p.id));
+        return path.length >= 2 ? (
+          <Polyline
+            key={`path-${p.id}`}
+            positions={path}
+            pathOptions={{ color: PATH_LINE_COLOR, weight: 3, opacity: 0.9, dashArray: '6,6' }}
+          />
+        ) : null;
+      })}
+      {plots.filter(p => p.refPoint).map(p => (
+        <CircleMarker
+          key={`ref-${p.id}`}
+          center={[p.refPoint.lat, p.refPoint.lng]}
+          radius={7}
+          pathOptions={{ color: REF_POINT_COLOR, fillColor: REF_POINT_COLOR, fillOpacity: 0.9 }}
+        >
+          <Tooltip>{`🚩 จุดอ้างอิง: ${p.name}`}</Tooltip>
+        </CircleMarker>
       ))}
       {trees.map(t => (
         <CircleMarker
