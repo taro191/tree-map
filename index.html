@@ -5,17 +5,42 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ระบบแผนที่ต้นไม้ v1.50</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#F7F5EF;
     --panel:#FFFFFF;
     --ink:#1F2B22;
-    --primary:#3D6B4A;
-    --primary-dark:#2A4C33;
-    --bark:#A6612E;
+    /* Redesign v2 palette -- old --primary/--primary-dark/--bark names kept as
+       aliases pointing at the new green/orange tones, so existing screens not
+       yet restyled (map tab, modals) pick up the new colors for free. */
+    --primary:#237249;
+    --primary-dark:#1D5B3B;
+    --bark:#C9631A;
     --line:#DCD6C7;
     --muted:#6B7768;
     --tag:#F1ECDD;
+
+    /* New design tokens (redesign v2) */
+    --cream:#FAF9F4;
+    --surface:#F3F8F2;
+    --green-900:#1D5B3B;
+    --green-700:#237249;
+    --green-600:#2E8B57;
+    --green-400:#6FBF8B;
+    --green-100:#DFF0E2;
+    --orange-700:#C9631A;
+    --orange-600:#E8862E;
+    --orange-400:#F3A65C;
+    --orange-100:#FCE7CC;
+    --rd-ink:#1B2620;
+    --rd-muted:#6E7C73;
+    --rd-line:#E4EBE2;
+    --radius-lg:22px;
+    --radius-md:16px;
+    --radius-sm:10px;
+    --rd-shadow:0 8px 24px rgba(29,91,59,0.10);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif;color:var(--ink);background:var(--bg);overscroll-behavior:none;}
@@ -26,35 +51,9 @@
   #map-wrap{position:absolute;top:0;right:0;bottom:0;left:0;}
   #map{height:100%;width:100%;}
 
-  #topbar{
-    position:absolute;top:0;left:0;right:0;z-index:900;
-    display:flex;align-items:center;justify-content:space-between;
-    padding:calc(env(safe-area-inset-top,0px) + 12px) 14px 30px 58px;
-    background:linear-gradient(rgba(20,28,22,.45), transparent);
-    pointer-events:none;
-  }
-  #topbar h1{font-size:16.5px;font-weight:700;color:white;text-shadow:0 1px 4px rgba(0,0,0,.45);pointer-events:none;text-align:right;}
-  #menu-wrap{position:relative;pointer-events:auto;flex-shrink:0;}
-  #menu-btn{
-    width:42px;height:42px;border-radius:50%;background:white;
-    box-shadow:0 2px 10px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;
-    font-size:18px;border:none;cursor:pointer;flex-shrink:0;
-  }
-  #menu-dropdown{
-    position:absolute;top:50px;left:0;z-index:901;
-    background:var(--panel);border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.25);
-    padding:6px;min-width:190px;display:none;flex-direction:column;gap:2px;
-  }
-  #menu-dropdown.show{display:flex;}
-  #menu-dropdown button{
-    text-align:left;padding:10px 12px;border:none;background:none;border-radius:8px;
-    font-family:inherit;font-size:13.5px;font-weight:600;color:var(--ink);cursor:pointer;
-  }
-  #menu-dropdown button:hover{background:var(--tag);}
-
   /* Bottom sheet */
   #sidebar{
-    position:absolute;left:0;right:0;bottom:0;z-index:950;
+    position:absolute;left:0;right:0;bottom:64px;z-index:950;
     width:100%;background:var(--panel);
     border-radius:18px 18px 0 0;box-shadow:0 -6px 28px rgba(31,43,34,0.18);
     display:flex;flex-direction:column;
@@ -284,10 +283,91 @@
 
   ::-webkit-scrollbar{width:6px;}
   ::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px;}
+
+  /* ================= Redesign v2: bottom-nav + หน้าแรก/รายการแปลง/บัญชี =================
+     ทุกอย่างในบล็อกนี้ scope อยู่ใต้ .redesign (=#app) เพื่อไม่ชนกับสไตล์เดิมของหน้าแผนที่/modal
+     ที่ยังไม่ได้รีสไตล์รอบนี้ (Phase B) */
+  .redesign .top-screen{
+    display:none;position:absolute;inset:0;z-index:960;background:var(--cream);
+    flex-direction:column;font-family:'Sarabun',sans-serif;color:var(--rd-ink);
+  }
+  .redesign .top-screen.active{display:flex;}
+  .redesign .top-screen .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(env(safe-area-inset-top,0px) + 20px) 18px calc(64px + env(safe-area-inset-bottom,0px) + 20px);}
+  .redesign .top-screen h1,.redesign .top-screen h2,.redesign .top-screen h3{font-family:'Prompt',sans-serif;margin:0;}
+
+  .redesign .greeting{margin:0 0 16px;}
+  .redesign .greeting .hello{color:var(--rd-muted);font-size:13px;}
+  .redesign .greeting h2{font-size:19px;margin:2px 0 0;color:var(--green-900);}
+  .redesign .stat-row{display:flex;gap:10px;margin-bottom:18px;}
+  .redesign .stat-card{flex:1;background:var(--white,#fff);border:1px solid var(--rd-line);border-radius:var(--radius-md);padding:12px;}
+  .redesign .stat-card .num{font-family:'Prompt',sans-serif;font-weight:700;font-size:19px;color:var(--green-900);}
+  .redesign .stat-card.orange .num{color:var(--orange-700);}
+  .redesign .stat-card .lbl{font-size:11px;color:var(--rd-muted);margin-top:2px;}
+
+  .redesign .section-title{display:flex;align-items:center;justify-content:space-between;margin:4px 0 10px;}
+  .redesign .section-title h3{font-size:14.5px;margin:0;color:var(--rd-ink);}
+  .redesign .section-title a{font-size:12px;color:var(--green-700);font-weight:600;text-decoration:none;cursor:pointer;}
+
+  .redesign .cta-primary{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    background:linear-gradient(155deg,var(--orange-600),var(--orange-700));
+    color:#fff;font-family:'Prompt',sans-serif;font-weight:600;font-size:14px;
+    padding:14px;border-radius:16px;border:none;width:100%;cursor:pointer;
+    box-shadow:0 10px 20px rgba(232,134,46,0.30);margin-top:4px;
+  }
+  .redesign .cta-secondary{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    background:#fff;color:var(--green-700);font-family:'Prompt',sans-serif;font-weight:600;font-size:13.5px;
+    padding:12px;border-radius:16px;border:1.5px solid var(--green-600);width:100%;cursor:pointer;
+  }
+
+  .redesign .pcard{
+    display:flex;gap:12px;background:#fff;border:1px solid var(--rd-line);
+    border-radius:var(--radius-md);padding:12px;margin-bottom:10px;box-shadow:var(--rd-shadow);cursor:pointer;
+  }
+  .redesign .pcard .plot-thumb{
+    width:56px;height:56px;border-radius:14px;flex-shrink:0;
+    background:linear-gradient(155deg,var(--green-400),var(--green-700));
+    display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;
+  }
+  .redesign .pcard .plot-info{flex:1;min-width:0;}
+  .redesign .pcard .plot-info .name{font-family:'Prompt',sans-serif;font-weight:600;font-size:14px;color:var(--rd-ink);}
+  .redesign .pcard .plot-info .owner{font-size:11.5px;color:var(--rd-muted);margin-top:1px;}
+  .redesign .pcard .plot-tags{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;}
+  .redesign .pcard .rd-tag{font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--green-100);color:var(--green-700);}
+  .redesign .pcard .chev{align-self:center;color:var(--rd-muted);}
+  .redesign .empty-hint-rd{text-align:center;color:var(--rd-muted);font-size:13px;padding:30px 10px;line-height:1.6;}
+
+  .redesign .login-hero{
+    height:210px;background:linear-gradient(165deg,var(--green-700),var(--green-900));
+    display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .redesign .login-hero svg.mark{width:60px;height:60px;}
+  .redesign .login-hero .word{font-family:'Prompt',sans-serif;color:#fff;font-weight:700;font-size:17px;margin-top:10px;}
+  .redesign .login-hero .tag{font-family:'Sarabun',sans-serif;color:rgba(255,255,255,0.75);font-size:11.5px;margin-top:2px;}
+  .redesign .account-body{text-align:center;}
+  .redesign .account-body h3{font-size:16px;margin:0 0 6px;color:var(--green-900);}
+  .redesign .account-body p{font-size:12.5px;color:var(--rd-muted);margin:0 0 18px;line-height:1.5;}
+
+  #bottom-nav{
+    position:absolute;left:0;right:0;bottom:0;z-index:1000;
+    background:#fff;border-top:1px solid var(--rd-line);
+    display:flex;align-items:center;justify-content:space-around;
+    padding:9px 8px calc(9px + env(safe-area-inset-bottom,0px));
+    font-family:'Sarabun',sans-serif;
+  }
+  #bottom-nav .nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--rd-muted);font-size:10.5px;font-weight:600;cursor:pointer;}
+  #bottom-nav .nav-item span{font-size:18px;line-height:1;}
+  #bottom-nav .nav-item.active{color:var(--green-700);}
+  #bottom-nav .nav-fab{
+    width:50px;height:50px;border-radius:16px;background:linear-gradient(155deg,var(--orange-600),var(--orange-700));
+    display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;cursor:pointer;
+    box-shadow:0 10px 20px rgba(232,134,46,0.38);margin-top:-26px;flex-shrink:0;
+  }
 </style>
 </head>
 <body>
-<div id="app">
+<div id="app" class="redesign">
   <div id="map-wrap">
     <div id="crosshair-banner">คลิกบนแผนที่เพื่อวางตำแหน่งต้นไม้</div>
     <div id="map-fallback-notice">
@@ -296,18 +376,6 @@
     </div>
     <div id="gps-btn" title="ไปยังตำแหน่ง GPS ของฉัน">📍</div>
     <div id="map"></div>
-  </div>
-
-  <div id="topbar">
-    <div id="menu-wrap">
-      <button id="menu-btn">☰</button>
-      <div id="menu-dropdown">
-        <button id="menu-item-home">🏠 กลับหน้าแรก</button>
-        <button id="menu-item-toggle-sheet">⬍ ย่อ/ขยายแผงข้อมูล</button>
-        <button id="menu-item-auth">👤 เข้าสู่ระบบ</button>
-      </div>
-    </div>
-    <h1>🌳 แผนที่ต้นไม้ <span style="opacity:.75;font-weight:500;font-size:12px;">v1.50</span></h1>
   </div>
 
   <div id="sidebar" class="expanded">
@@ -400,6 +468,61 @@
       <button class="btn secondary small" id="btn-back-detail-from-trees" style="margin-bottom:14px;">← กลับ</button>
       <div id="tree-tab-body"></div>
     </div>
+  </div>
+
+  <div class="top-screen" id="view-dashboard" data-tab-screen="home">
+    <div class="scroll">
+      <div class="greeting">
+        <div class="hello">สวัสดี 👋</div>
+        <h2 id="dash-greeting-name">แผนที่ต้นไม้</h2>
+      </div>
+      <div class="stat-row">
+        <div class="stat-card"><div class="num" id="dash-stat-plots">0</div><div class="lbl">แปลงที่ดิน</div></div>
+        <div class="stat-card"><div class="num" id="dash-stat-trees">0</div><div class="lbl">ต้นไม้ทั้งหมด</div></div>
+        <div class="stat-card orange"><div class="num" id="dash-stat-survey">0</div><div class="lbl">กำลังสำรวจ</div></div>
+      </div>
+      <button class="cta-primary" id="btn-dash-add-plot">✚ เพิ่มแปลงใหม่</button>
+      <div class="section-title" style="margin-top:20px;">
+        <h3>แปลงที่ดินของฉัน</h3>
+        <a id="btn-dash-viewall">ดูทั้งหมด</a>
+      </div>
+      <div id="dash-plot-list"></div>
+    </div>
+  </div>
+
+  <div class="top-screen" id="view-plots" data-tab-screen="plots">
+    <div class="scroll">
+      <div class="section-title" style="margin-top:6px;"><h3>แปลงที่ดินทั้งหมด</h3></div>
+      <div id="plots-tab-list"></div>
+    </div>
+  </div>
+
+  <div class="top-screen" id="view-account" data-tab-screen="account">
+    <div class="login-hero">
+      <svg class="mark" viewBox="0 0 100 100"><use href="#logo-mark-onwhite"/></svg>
+      <div class="word">แผนที่ต้นไม้</div>
+      <div class="tag">TREE MAP · ระบบสำรวจแปลงและต้นไม้</div>
+    </div>
+    <div class="scroll account-body">
+      <div id="account-logged-out">
+        <h3>เข้าสู่ระบบเพื่อใช้งาน</h3>
+        <p>กรอกเบอร์โทรศัพท์และเข้าสู่ระบบ ระบบจะจดจำเครื่องนี้ไว้ให้ในครั้งถัดไป</p>
+        <button class="cta-primary" id="btn-account-login">เข้าสู่ระบบ / ลงทะเบียน</button>
+      </div>
+      <div id="account-logged-in" style="display:none;">
+        <h3 id="account-user-name">-</h3>
+        <p id="account-user-phone">-</p>
+        <button class="cta-secondary" id="btn-account-logout">🚪 ออกจากระบบ</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="bottom-nav">
+    <div class="nav-item" data-tab="home"><span>🏠</span>หน้าแรก</div>
+    <div class="nav-item" data-tab="plots"><span>📋</span>รายการแปลง</div>
+    <div class="nav-fab" id="nav-fab">✚</div>
+    <div class="nav-item" data-tab="map"><span>🗺️</span>แผนที่</div>
+    <div class="nav-item" data-tab="account"><span>👤</span>บัญชี</div>
   </div>
 </div>
 
@@ -541,6 +664,29 @@
   </div>
 </div>
 
+<svg width="0" height="0" style="position:absolute;">
+  <defs>
+    <symbol id="logo-mark" viewBox="0 0 100 100">
+      <path d="M50 5 C27 5 9 23 9 45 C9 73 50 97 50 97 C50 97 91 73 91 45 C91 23 73 5 50 5 Z" fill="#237249"/>
+      <circle cx="50" cy="44" r="27" fill="#ffffff"/>
+      <rect x="47" y="52" width="6" height="12" rx="2" fill="#1D5B3B"/>
+      <circle cx="50" cy="38" r="15" fill="#2E8B57"/>
+      <circle cx="39" cy="45" r="10" fill="#2E8B57"/>
+      <circle cx="61" cy="45" r="10" fill="#2E8B57"/>
+      <circle cx="59" cy="30" r="4.5" fill="#E8862E"/>
+    </symbol>
+    <symbol id="logo-mark-onwhite" viewBox="0 0 100 100">
+      <path d="M50 5 C27 5 9 23 9 45 C9 73 50 97 50 97 C50 97 91 73 91 45 C91 23 73 5 50 5 Z" fill="#ffffff"/>
+      <circle cx="50" cy="44" r="27" fill="#F3F8F2"/>
+      <rect x="47" y="52" width="6" height="12" rx="2" fill="#1D5B3B"/>
+      <circle cx="50" cy="38" r="15" fill="#2E8B57"/>
+      <circle cx="39" cy="45" r="10" fill="#2E8B57"/>
+      <circle cx="61" cy="45" r="10" fill="#2E8B57"/>
+      <circle cx="59" cy="30" r="4.5" fill="#E8862E"/>
+    </symbol>
+  </defs>
+</svg>
+
 <script>window.__leafletFailed = false;</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" onerror="window.__leafletFailed=true;"></script>
 <script>
@@ -578,6 +724,7 @@ let editingColor = COLORS[0];
 let map, markerLayer, boundaryLayer, boundaryPreviewLayer;
 let plotDetailMap = null;
 let currentView = 'home';
+let currentTab = 'home'; // 'home' | 'plots' | 'map' | 'account' -- redesign v2 top-level tab
 
 let creatingPlot = null;   // {name, ownerName, ownerContact, color, points:[]}
 let boundaryMode = false;
@@ -995,12 +1142,9 @@ function prefillOwnerFromIdentity(){
 }
 
 function updateAuthMenuLabel(){
-  const btn = document.getElementById('menu-item-auth');
-  if(identifiedUser){
-    btn.textContent = '🚪 ออกจากระบบ' + (identifiedUser.name ? ` (${identifiedUser.name})` : '');
-  } else {
-    btn.textContent = '👤 เข้าสู่ระบบ';
-  }
+  // เดิมอัปเดตข้อความปุ่มในเมนู ☰ ตอนนี้เมนูนั้นถูกแทนที่ด้วยหน้า "บัญชี" (redesign v2)
+  // เก็บชื่อฟังก์ชันเดิมไว้ (เรียกใช้อยู่หลายจุด) แต่เปลี่ยนให้ไปอัปเดตหน้าบัญชีแทน
+  renderAccountView();
 }
 
 async function refreshAuthMenuState(){
@@ -1905,6 +2049,114 @@ function renderAll(){
   renderTreeTab();
   renderMarkers();
   renderBoundaries();
+  renderDashboard();
+  renderPlotsListTab();
+  renderAccountView();
+}
+
+// ===== Redesign v2: top-level tab router (หน้าแรก / รายการแปลง / แผนที่ / บัญชี) =====
+function setTab(tab){
+  currentTab = tab;
+  document.getElementById('map-wrap').style.display = tab==='map' ? '' : 'none';
+  document.getElementById('sidebar').style.display = tab==='map' ? '' : 'none';
+  document.querySelectorAll('.top-screen').forEach(el=>el.classList.toggle('active', el.dataset.tabScreen===tab));
+  document.querySelectorAll('#bottom-nav .nav-item').forEach(el=>el.classList.toggle('active', el.dataset.tab===tab));
+  if(tab==='home') renderDashboard();
+  if(tab==='plots') renderPlotsListTab();
+  if(tab==='account') renderAccountView();
+  if(tab==='map'){
+    renderMarkers();
+    renderBoundaries();
+  }
+}
+
+function pcardHtml(p){
+  const count = trees.filter(t=>t.plotId===p.id).length;
+  const hasBoundary = p.boundary && p.boundary.length>=3;
+  const statusTag = `<span class="rd-tag" style="background:${PLOT_STATUS_COLORS[p.status||'data_entry']}22;color:${PLOT_STATUS_COLORS[p.status||'data_entry']}">${escapeHtml(PLOT_STATUS_LABELS[p.status||'data_entry']||'')}</span>`;
+  return `
+    <div class="pcard" data-plot="${p.id}">
+      <div class="plot-thumb" style="background:linear-gradient(155deg,${p.color||'#6FBF8B'},${p.color||'#237249'});">🌳</div>
+      <div class="plot-info">
+        <div class="name">${escapeHtml(p.name)}</div>
+        <div class="owner">🌳 ${count} ต้น${hasBoundary? '' : ' · ⚠️ ไม่มีขอบเขต'}</div>
+        <div class="plot-tags">${statusTag}</div>
+      </div>
+      <div class="chev">›</div>
+    </div>`;
+}
+
+function bindPcardClicks(container){
+  container.querySelectorAll('[data-plot]').forEach(card=>{
+    card.onclick = ()=>{
+      const id = card.dataset.plot;
+      if(boundaryMode){ alert('กำลังวาดขอบเขตแปลงอยู่ กรุณาบันทึกหรือยกเลิกก่อน'); return; }
+      selectedPlotId = id;
+      renderAll();
+      setTab('map');
+      setView('plot-detail');
+    };
+  });
+}
+
+function renderDashboard(){
+  const nameEl = document.getElementById('dash-greeting-name');
+  nameEl.textContent = identifiedUser ? identifiedUser.name || 'แผนที่ต้นไม้' : 'แผนที่ต้นไม้';
+  const list = identifiedUser ? visiblePlots() : [];
+  const treeCount = list.reduce((sum,p)=>sum + trees.filter(t=>t.plotId===p.id).length, 0);
+  const surveyingCount = list.filter(p=>(p.status||'data_entry')==='tree_survey').length;
+  document.getElementById('dash-stat-plots').textContent = list.length;
+  document.getElementById('dash-stat-trees').textContent = treeCount;
+  document.getElementById('dash-stat-survey').textContent = surveyingCount;
+
+  const el = document.getElementById('dash-plot-list');
+  if(!identifiedUser){
+    el.innerHTML = '<div class="empty-hint-rd">เข้าสู่ระบบเพื่อดูแปลงของคุณ</div>';
+    return;
+  }
+  if(list.length===0){
+    el.innerHTML = '<div class="empty-hint-rd">ยังไม่มีแปลงของคุณ<br>กดปุ่ม + เพิ่มแปลงใหม่ ด้านบนเพื่อเริ่มต้น</div>';
+    return;
+  }
+  el.innerHTML = list.slice(0,3).map(pcardHtml).join('');
+  bindPcardClicks(el);
+}
+
+function renderPlotsListTab(){
+  const el = document.getElementById('plots-tab-list');
+  if(!identifiedUser){
+    el.innerHTML = '<div class="empty-hint-rd">เข้าสู่ระบบเพื่อดูแปลงของคุณ</div>';
+    return;
+  }
+  const list = visiblePlots();
+  if(list.length===0){
+    el.innerHTML = '<div class="empty-hint-rd">ยังไม่มีแปลงของคุณ</div>';
+    return;
+  }
+  el.innerHTML = list.map(pcardHtml).join('');
+  bindPcardClicks(el);
+}
+
+function renderAccountView(){
+  const loggedOut = document.getElementById('account-logged-out');
+  const loggedIn = document.getElementById('account-logged-in');
+  if(!loggedOut || !loggedIn) return;
+  if(identifiedUser){
+    loggedOut.style.display = 'none';
+    loggedIn.style.display = '';
+    document.getElementById('account-user-name').textContent = identifiedUser.name || 'ผู้ใช้';
+    document.getElementById('account-user-phone').textContent = identifiedUser.phone || '';
+  } else {
+    loggedOut.style.display = '';
+    loggedIn.style.display = 'none';
+  }
+}
+
+async function logoutUser(){
+  if(!confirm('ออกจากระบบ?')) return;
+  try{ await fetch('/api/auth/logout', {method:'POST', credentials:'include'}); }catch(e){}
+  identifiedUser = null;
+  renderAll();
 }
 
 function escapeHtml(s){
@@ -2551,37 +2803,22 @@ document.getElementById('btn-save-tree').onclick = async ()=>{
   renderAll();
 };
 
-document.getElementById('menu-btn').onclick = (e)=>{
-  e.stopPropagation();
-  document.getElementById('menu-dropdown').classList.toggle('show');
-  refreshAuthMenuState();
-};
-document.getElementById('menu-item-home').onclick = ()=>{
-  setView('home');
-  document.getElementById('menu-dropdown').classList.remove('show');
-};
-document.getElementById('menu-item-toggle-sheet').onclick = ()=>{
-  toggleSheet();
-  document.getElementById('menu-dropdown').classList.remove('show');
-};
-document.getElementById('menu-item-auth').onclick = async ()=>{
-  document.getElementById('menu-dropdown').classList.remove('show');
-  if(identifiedUser){
-    if(!confirm('ออกจากระบบ?')) return;
-    try{ await fetch('/api/auth/logout', {method:'POST', credentials:'include'}); }catch(e){}
-    identifiedUser = null;
-    updateAuthMenuLabel();
-    renderAll();
-  } else {
-    openIdentifyModal('menu');
-  }
-};
-document.addEventListener('click', (e)=>{
-  const dropdown = document.getElementById('menu-dropdown');
-  if(dropdown.classList.contains('show') && !document.getElementById('menu-wrap').contains(e.target)){
-    dropdown.classList.remove('show');
-  }
+// ===== Redesign v2: bottom-nav / FAB / หน้าแรก / รายการแปลง / บัญชี =====
+document.querySelectorAll('#bottom-nav .nav-item').forEach(item=>{
+  item.onclick = ()=> setTab(item.dataset.tab);
 });
+document.getElementById('nav-fab').onclick = async ()=>{
+  setTab('map');
+  await openAddPlotFlow();
+};
+document.getElementById('btn-dash-add-plot').onclick = async ()=>{
+  setTab('map');
+  await openAddPlotFlow();
+};
+document.getElementById('btn-dash-viewall').onclick = ()=> setTab('plots');
+document.getElementById('btn-account-login').onclick = ()=> openIdentifyModal('account');
+document.getElementById('btn-account-logout').onclick = logoutUser;
+
 document.getElementById('sheet-handle-wrap').onclick = toggleSheet;
 
 document.getElementById('gps-btn').onclick = ()=> locateUser();
@@ -2614,6 +2851,7 @@ window.addEventListener('unhandledrejection', (e)=>{
     await loadData();
     await refreshAuthMenuState();
     renderAll();
+    setTab('home');
     if(currentView === 'home') locateUser(null, true);
   }catch(err){
     console.error('เริ่มระบบล้มเหลว:', err);
