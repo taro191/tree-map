@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ระบบแผนที่ต้นไม้ v1.50</title>
+<title>ระบบแผนที่ต้นไม้ v1.51</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -188,6 +188,11 @@
   .empty-hint{font-size:12.5px;color:var(--rd-muted);text-align:center;padding:24px 10px;line-height:1.6;}
 
   .status-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;color:white;vertical-align:middle;}
+  .progress-row{display:flex;align-items:center;gap:8px;margin-top:10px;}
+  .progress-track{flex:1;height:7px;background:var(--green-100);border-radius:999px;overflow:hidden;}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--green-600),var(--green-400));border-radius:999px;transition:width .3s;}
+  .progress-fill.rejected{background:linear-gradient(90deg,#c0392b,#e07a6e);}
+  .progress-label{font-size:11px;color:var(--rd-muted);font-weight:600;white-space:nowrap;}
   .review-reject-box{background:#FBEAEA;border:1px solid #E3B3B3;border-radius:var(--radius-md);padding:12px;margin:0 0 14px;font-size:12.5px;color:#7a2b2b;line-height:1.6;}
   .review-reject-box b{display:block;margin-bottom:4px;}
   .review-photos{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
@@ -198,6 +203,17 @@
   .plot-photo-section{margin:0 0 14px;}
   .plot-photo-preview{width:100%;max-height:420px;object-fit:contain;border-radius:var(--radius-md);display:block;background:var(--surface);}
   .plot-photo-placeholder{background:var(--surface);border-radius:var(--radius-md);padding:20px 10px;text-align:center;font-size:12.5px;color:var(--rd-muted);}
+
+  .gps-chip{display:flex;align-items:center;gap:8px;background:var(--green-100);border-radius:var(--radius-md);padding:8px 10px;}
+  .gps-chip .dotpulse{width:8px;height:8px;background:var(--orange-600);border-radius:50%;flex-shrink:0;}
+  .gps-chip input{border:none;background:transparent;padding:4px 2px;font-size:13px;color:var(--green-900);}
+  .gps-chip input:focus{outline:none;}
+
+  .photo-drop{border:1.5px dashed var(--green-400);background:var(--green-100);border-radius:var(--radius-md);padding:18px 10px;text-align:center;color:var(--green-700);}
+  .photo-drop .icon{font-size:22px;}
+  .photo-drop .t{font-family:'Prompt',sans-serif;font-weight:600;font-size:12.5px;margin-top:4px;}
+  .photo-actions{display:flex;gap:8px;margin-top:8px;}
+  .photo-actions button{flex:1;}
 
   #plot-detail-map{height:260px;border-radius:10px;overflow:hidden;margin-top:14px;background:var(--tag);}
   #plot-detail-map .empty-hint{padding:0;}
@@ -243,6 +259,17 @@
   #gps-btn.peek{bottom:174px;}
   #gps-btn.loading{animation:spin 1s linear infinite;}
   @keyframes spin{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+
+  #map-pill{
+    display:none;position:absolute;top:14px;right:14px;z-index:970;gap:6px;
+    background:rgba(255,255,255,.95);border-radius:999px;padding:5px;box-shadow:var(--rd-shadow);
+  }
+  #map-pill.show{display:flex;}
+  #map-pill .pill-btn{
+    width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    background:transparent;color:var(--green-900);font-size:16px;cursor:pointer;
+  }
+  #map-pill .pill-btn:active{background:var(--green-100);}
 
   .gps-dot{
     width:16px;height:16px;border-radius:50%;background:#3B82F6;border:3px solid white;
@@ -379,13 +406,17 @@
       <span id="map-fallback-detail">กรุณาเปิดไฟล์นี้ในเบราว์เซอร์ของโทรศัพท์โดยตรง (ไม่ใช่หน้าตัวอย่างในแชท) เพื่อให้โหลดแผนที่ผ่านอินเทอร์เน็ตได้</span>
     </div>
     <div id="gps-btn" title="ไปยังตำแหน่ง GPS ของฉัน">📍</div>
+    <div id="map-pill">
+      <div class="pill-btn" id="pill-back" title="กลับ">←</div>
+      <div class="pill-btn" id="pill-toggle-sheet" title="ย่อ/ขยายแผงข้อมูล">⬍</div>
+    </div>
     <div id="map"></div>
   </div>
 
   <div id="sidebar" class="expanded">
     <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
     <div id="sidebar-header">
-      <p><span id="sidebar-subtitle-view">หน้าแรก · รายการแปลงที่ดิน</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.50</span></p>
+      <p><span id="sidebar-subtitle-view">แผนที่ · เลือกแปลงบนแผนที่หรือในรายการ</span> · <span style="color:var(--bark);font-weight:700;">เวอร์ชัน v1.51</span></p>
     </div>
     <div class="panel active" id="view-home">
       <button class="btn" id="btn-open-add-plot" style="margin-bottom:14px;">+ เพิ่มแปลงใหม่</button>
@@ -535,13 +566,14 @@
     <h3 id="modal-title">เพิ่มต้นไม้</h3>
     <div class="field">
       <label>ตำแหน่ง GPS</label>
-      <div style="display:flex;gap:8px;">
+      <div class="gps-chip">
+        <span class="dotpulse"></span>
         <input id="in-tree-lat" type="number" step="any" placeholder="lat" style="flex:1;">
         <input id="in-tree-lng" type="number" step="any" placeholder="lng" style="flex:1;">
       </div>
-      <div style="display:flex;gap:8px;margin-top:6px;">
-        <button type="button" class="btn secondary small" id="btn-tree-gps-here" style="flex:1;">📍 ใช้ตำแหน่ง GPS ปัจจุบัน</button>
-        <button type="button" class="btn secondary small" id="btn-tree-pin-map" style="flex:1;">🗺️ เลือกบนแผนที่</button>
+      <div class="photo-actions">
+        <button type="button" class="btn secondary small" id="btn-tree-gps-here">📍 ใช้ตำแหน่ง GPS ปัจจุบัน</button>
+        <button type="button" class="btn secondary small" id="btn-tree-pin-map">🗺️ เลือกบนแผนที่</button>
       </div>
     </div>
     <div class="field">
@@ -559,23 +591,23 @@
     <div class="field">
       <label>รูปต้นไม้</label>
       <img id="modal-tree-photo-preview" class="plot-photo-preview" style="display:none;">
-      <div id="modal-tree-photo-placeholder" class="plot-photo-placeholder">ยังไม่มีรูปต้นไม้</div>
+      <div id="modal-tree-photo-placeholder" class="photo-drop"><div class="icon">📷</div><div class="t">แตะปุ่มด้านล่างเพื่อถ่าย/อัปโหลดรูปต้นไม้</div></div>
       <input type="file" accept="image/*" capture="environment" id="in-tree-photo-camera" style="display:none;">
       <input type="file" accept="image/*" id="in-tree-photo-upload" style="display:none;">
-      <div style="display:flex;gap:8px;margin-top:6px;">
-        <button type="button" class="btn secondary small" id="btn-tree-photo-camera" style="flex:1;">📷 ถ่ายรูป</button>
-        <button type="button" class="btn secondary small" id="btn-tree-photo-upload" style="flex:1;">🖼️ อัปโหลด</button>
+      <div class="photo-actions">
+        <button type="button" class="btn secondary small" id="btn-tree-photo-camera">📷 ถ่ายรูป</button>
+        <button type="button" class="btn secondary small" id="btn-tree-photo-upload">🖼️ อัปโหลด</button>
       </div>
     </div>
     <div class="field">
       <label>รูปโค้ด/ป้ายต้นไม้ (ถ้ามี)</label>
       <img id="modal-code-photo-preview" class="plot-photo-preview" style="display:none;">
-      <div id="modal-code-photo-placeholder" class="plot-photo-placeholder">ยังไม่มีรูปโค้ด</div>
+      <div id="modal-code-photo-placeholder" class="photo-drop"><div class="icon">🏷️</div><div class="t">แตะปุ่มด้านล่างเพื่อถ่าย/อัปโหลดรูปโค้ด</div></div>
       <input type="file" accept="image/*" capture="environment" id="in-code-photo-camera" style="display:none;">
       <input type="file" accept="image/*" id="in-code-photo-upload" style="display:none;">
-      <div style="display:flex;gap:8px;margin-top:6px;">
-        <button type="button" class="btn secondary small" id="btn-code-photo-camera" style="flex:1;">📷 ถ่ายรูปโค้ด</button>
-        <button type="button" class="btn secondary small" id="btn-code-photo-upload" style="flex:1;">🖼️ อัปโหลด</button>
+      <div class="photo-actions">
+        <button type="button" class="btn secondary small" id="btn-code-photo-camera">📷 ถ่ายรูปโค้ด</button>
+        <button type="button" class="btn secondary small" id="btn-code-photo-upload">🖼️ อัปโหลด</button>
       </div>
     </div>
     <div class="field">
@@ -715,6 +747,20 @@ function plotStatusBadge(plot){
   const label = PLOT_STATUS_LABELS[status] || status;
   const color = PLOT_STATUS_COLORS[status] || '#8A8A8A';
   return `<span class="status-badge" style="background:${color}">${escapeHtml(label)}</span>`;
+}
+const PLOT_STATUS_STEPS = ['data_entry','tree_survey','submitted','approved'];
+function plotProgressBar(plot){
+  const status = (plot && plot.status) || 'data_entry';
+  const rejected = status === 'tree_survey' && !!(plot && plot.reviewNote);
+  const idx = PLOT_STATUS_STEPS.indexOf(status);
+  const pct = Math.round(((idx<0?0:idx)+1) / PLOT_STATUS_STEPS.length * 100);
+  const label = rejected ? 'ตีกลับ ต้องแก้ไข' : (PLOT_STATUS_LABELS[status] || status);
+  return `
+    <div class="progress-row">
+      <div class="progress-track"><div class="progress-fill${rejected?' rejected':''}" style="width:${pct}%"></div></div>
+      <div class="progress-label">${escapeHtml(label)}</div>
+    </div>
+  `;
 }
 function isPlotLocked(plot){
   return !!plot && (plot.status === 'submitted' || plot.status === 'approved');
@@ -1517,6 +1563,7 @@ function renderPlotDetailInfo(){
           </div>
         `}
       </div>
+      ${plotProgressBar(plot)}
     </div>
     ${rejectionNote ? `
       <div class="review-reject-box">
@@ -1548,6 +1595,7 @@ function startEditBoundary(plot){
   document.getElementById('btn-save-boundary').textContent = 'บันทึกขอบเขตแปลง';
   document.getElementById('plot-step-info').style.display = 'none';
   document.getElementById('plot-step-boundary').style.display = 'block';
+  document.getElementById('map-pill').classList.add('show');
   renderBoundaryPreview();
   updateBoundaryCount();
   updateBanner();
@@ -2020,7 +2068,7 @@ function fitMainMapToSelectedPlot(){
 }
 
 const VIEW_TITLES = {
-  'home': 'หน้าแรก · รายการแปลงที่ดิน',
+  'home': 'แผนที่ · เลือกแปลงบนแผนที่หรือในรายการ',
   'plot-form': 'เพิ่มแปลงใหม่',
   'plot-detail': 'รายละเอียดแปลง',
   'trees': 'เพิ่ม/จัดการต้นไม้ในแปลง'
@@ -2034,6 +2082,7 @@ function setView(view){
   }
   editingPlotDetail = false;
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id==='view-'+view));
+  document.getElementById('map-pill').classList.toggle('show', view === 'plot-form' && boundaryMode);
   document.getElementById('sidebar-subtitle-view').textContent = VIEW_TITLES[view] || view;
   setSheetExpanded(true);
   if(view === 'plot-detail') renderPlotDetailInfo();
@@ -2069,6 +2118,7 @@ function setTab(tab){
   if(tab==='plots') renderPlotsListTab();
   if(tab==='account') renderAccountView();
   if(tab==='map'){
+    document.getElementById('sidebar-subtitle-view').textContent = VIEW_TITLES[currentView] || currentView;
     renderMarkers();
     renderBoundaries();
   }
@@ -2578,6 +2628,7 @@ document.getElementById('btn-add-plot').onclick = ()=>{
   boundaryMode = true;
   document.getElementById('plot-step-info').style.display = 'none';
   document.getElementById('plot-step-boundary').style.display = 'block';
+  document.getElementById('map-pill').classList.add('show');
   renderBoundaryPreview();
   updateBoundaryCount();
   updateBanner();
@@ -2593,6 +2644,7 @@ function endBoundaryCreation(){
   document.getElementById('walk-switch').classList.remove('on');
   document.getElementById('plot-step-boundary').style.display = 'none';
   document.getElementById('plot-step-info').style.display = 'block';
+  document.getElementById('map-pill').classList.remove('show');
   document.getElementById('boundary-step-title').textContent = 'วาดขอบเขตแปลง';
   document.getElementById('btn-save-boundary').textContent = 'บันทึกแปลง';
   updateBanner();
@@ -2824,6 +2876,8 @@ document.getElementById('btn-account-login').onclick = ()=> openIdentifyModal('a
 document.getElementById('btn-account-logout').onclick = logoutUser;
 
 document.getElementById('sheet-handle-wrap').onclick = toggleSheet;
+document.getElementById('pill-toggle-sheet').onclick = toggleSheet;
+document.getElementById('pill-back').onclick = ()=> document.getElementById('btn-back-home-from-form').click();
 
 document.getElementById('gps-btn').onclick = ()=> locateUser();
 
