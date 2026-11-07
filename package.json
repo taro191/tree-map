@@ -11,7 +11,8 @@
     "start": "node server.js",
     "dev": "node scripts/dev-memory-server.js",
     "build": "npm install --prefix admin && npm run build --prefix admin",
-    "dev:admin": "npm run dev --prefix admin"
+    "dev:admin": "npm run dev --prefix admin",
+    "migrate:from-pg": "node scripts/migrate-pg-to-mysql.js"
   },
   "repository": {
     "type": "git",
