@@ -1,5 +1,6 @@
 const { createApp } = require('./server/app');
 const { createPgStore } = require('./server/db');
+const { createMysqlStore } = require('./server/mysql');
 
 const PORT = process.env.PORT || 3000;
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -13,7 +14,8 @@ if (!process.env.JWT_SECRET) {
   process.exit(1);
 }
 
-const store = createPgStore(DATABASE_URL);
+// mysql:// (MariaDB on Plesk/hostatom) or postgres:// (Render)
+const store = DATABASE_URL.startsWith("mysql://") ? createMysqlStore(DATABASE_URL) : createPgStore(DATABASE_URL);
 
 async function start(retriesLeft = 10) {
   try {
