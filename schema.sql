@@ -109,3 +109,10 @@ ALTER TABLE plots ADD COLUMN IF NOT EXISTS community_enterprise_status TEXT;
 
 -- Membership condition: largest plot size (in rai) the group accepts. NULL means no limit.
 ALTER TABLE community_enterprises ADD COLUMN IF NOT EXISTS max_plot_area_rai NUMERIC;
+
+-- Small key/value store for server-generated settings (e.g. jwt_secret when the
+-- JWT_SECRET env var isn't set).
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);

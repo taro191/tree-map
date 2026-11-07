@@ -102,5 +102,10 @@ CREATE TABLE IF NOT EXISTS community_enterprise_members (
   CONSTRAINT fk_cem_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS app_settings (
+  `key` VARCHAR(64) NOT NULL PRIMARY KEY,
+  value TEXT NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 UPDATE plots SET status = 'tree_survey'
 WHERE status = 'data_entry' AND EXISTS (SELECT 1 FROM trees WHERE trees.plot_id = plots.id);

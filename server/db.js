@@ -242,8 +242,17 @@ function createPgStore(connectionString) {
     await pool.query('DELETE FROM purposes WHERE id = $1', [id]);
   }
 
+  async function getSetting(key) {
+    const { rows } = await pool.query('SELECT value FROM app_settings WHERE key = $1', [key]);
+    return rows[0] ? rows[0].value : null;
+  }
+
+  async function setSettingIfAbsent(key, value) {
+    await pool.query('INSERT INTO app_settings (key, value) VALUES ($1,$2) ON CONFLICT (key) DO NOTHING', [key, value]);
+  }
+
   return {
-    pool, initSchema, listPlots, upsertPlot, deletePlot, findPlotById, updatePlotStatus, bumpPlotToTreeSurvey,
+    pool, initSchema, getSetting, setSettingIfAbsent, listPlots, upsertPlot, deletePlot, findPlotById, updatePlotStatus, bumpPlotToTreeSurvey,
     listTrees, upsertTree, deleteTree, findTreeById,
     createUser, updateUserRole, updateUserProfile, updateUserPassword,
     findUserByEmail, findUserByPhone, findUserByNationalId, findUserById, listUsers,

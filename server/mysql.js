@@ -217,8 +217,17 @@ function createMysqlStore(connectionString) {
 
   async function deletePurpose(id) { await q('DELETE FROM purposes WHERE id = ?', [id]); }
 
+  async function getSetting(key) {
+    const rows = await q('SELECT value FROM app_settings WHERE `key` = ?', [key]);
+    return rows[0] ? rows[0].value : null;
+  }
+
+  async function setSettingIfAbsent(key, value) {
+    await q('INSERT IGNORE INTO app_settings (`key`, value) VALUES (?,?)', [key, value]);
+  }
+
   return {
-    pool, initSchema, listPlots, upsertPlot, deletePlot, findPlotById, updatePlotStatus, bumpPlotToTreeSurvey,
+    pool, initSchema, getSetting, setSettingIfAbsent, listPlots, upsertPlot, deletePlot, findPlotById, updatePlotStatus, bumpPlotToTreeSurvey,
     listTrees, upsertTree, deleteTree, findTreeById,
     createUser, updateUserRole, updateUserProfile, updateUserPassword,
     findUserByEmail, findUserByPhone, findUserByNationalId, findUserById, listUsers,
